@@ -46,7 +46,49 @@ CAMPAIGNS = [
        roi="admin time, rework and errors")),
 ]
 
+HYPOTHESES = [  # exact phrases from the account-intelligence Bottleneck Bank
+ ("Roster changes, qualifications and leave approvals", "bank_rosters", dict(
+   pain="roster, qualification and leave-approval management", impact="manual reconciliation and delayed or inconsistent payroll inputs",
+   solution="bring rosters, leave and approvals together with attendance feeding payroll directly",
+   value="payroll inputs you can trust without chasing managers", roi="reconciliation time and pay corrections")),
+ ("timesheets and employee-versus-subcontractor", "bank_timesheets", dict(
+   pain="project and site timesheet management across employees and contractors", impact="rework on hours, job allocation and onboarding documentation",
+   solution="manage every worker type, on-roll, off-roll and contract, with attendance and timesheets feeding payroll on one platform",
+   value="clean hours and one source of truth for the whole workforce", roi="rework on hours and onboarding paperwork")),
+ ("joiner/leaver approvals may be spread across managers", "bank_approvals", dict(
+   pain="joiner, leaver and leave approval management spread across managers and finance", impact="approval delays and duplicated employee administration",
+   solution="run approval workflows and employee records from one HRMS that feeds payroll",
+   value="faster approvals and a single employee record", roi="duplicate admin and approval chasing")),
+ ("Location-level shifts, joiners and casual-worker changes", "bank_locations", dict(
+   pain="shift and casual-worker management across locations", impact="reconciliation across managers before every pay run",
+   solution="manage shifts, geofenced attendance and multi-location payroll centrally, with entity-level rules where needed",
+   value="consistent pay and compliance across every location", roi="manual reconciliation and payroll errors")),
+ ("different time and employee-data processes", "bank_mixed_teams", dict(
+   pain="time and employee-data management across office, warehouse and production teams", impact="inconsistent records and manual consolidation",
+   solution="unify employee data, attendance and payroll for every team on one platform",
+   value="one consistent process and reliable workforce data", roi="manual consolidation and data re-entry")),
+ ("separation from volunteers", "bank_volunteers", dict(
+   pain="paid-employee record management alongside volunteers and grant-funded programmes", impact="messy payroll data and extra reporting effort",
+   solution="manage different worker types and programme-level reporting from a single employee record feeding payroll",
+   value="clean paid-employee data and easier funder reporting", roi="spreadsheet handling and reporting effort")),
+ ("Split shifts, casual educator changes", "bank_split_shifts", dict(
+   pain="split-shift and casual staff management across centres", impact="inconsistent payroll inputs and approval delays",
+   solution="automate shifts, leave and centre-level approvals so they feed payroll accurately",
+   value="accurate pay for casual and split-shift staff", roi="manual rework and approval delays")),
+ ("split across specialist applications", "bank_fragmented_apps", dict(
+   pain="fragmented employee data and onboarding across specialist applications", impact="duplicate admin and gaps between systems",
+   solution="put onboarding, employee records, approvals and payroll on one platform, with API links to 50+ HR and finance systems",
+   value="one connected view of the workforce", roi="duplicate entry and system hopping")),
+]
+GENERIC_MARK = "require qualification before a specific HRMS bottleneck"
+
 def build(bottleneck):
+    b0 = (bottleneck or "")
+    for phrase, key, c in HYPOTHESES:
+        if phrase.lower() in b0.lower(): return key, dict(c)
+    return _build_regex(bottleneck)
+
+def _build_regex(bottleneck):
     """Pick the campaign that matches the databank's bottleneck text; fall back to using their words."""
     b = (bottleneck or "").strip()
     for key, rx, c in CAMPAIGNS:

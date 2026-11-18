@@ -66,7 +66,38 @@ def infer_bottleneck(r):
         return "manual HR administration and onboarding", "HR buyer"
     return "attendance tracking and shift management", "default (operations buyer)"
 
-def import_leads(con, path):
+_STOP = re.compile(r"\b(pty|ltd|limited|inc|llc|group|the|co|company|plc|corp|holdings|australia)\b|[^a-z0-9]")
+def _key(s): return _STOP.sub("", str(s or "").lower())
+SKIP_REL = ("partner", "excluded")
+
+def load_bank(path):
+    """Account-intelligence workbook -> {normalised company: info}. Uses Bottleneck Bank + Company BI relationship."""
+    import openpyxl
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    def table(name):
+        rows = [r for r in wb[name].iter_rows(values_only=True) if any(v is not None for v in r)]
+        i = next(i for i, r in enumerate(rows) if "Company" in r); h = rows[i]
+        return [dict(zip(h, r)) for r in rows[i + 1:]]
+    rel = {_key(r["Company"]): r.get("Relationship") or "" for r in table("Company BI")}
+    bank = {}
+    for r in table("Bottleneck Bank"):
+        k = _key(r["Company"])
+        bank[k] = dict(id=r["ID"], company=r["Company"], population=r["Population"], segment=r["Segment"], priority=r["Priority"],
+                       hypothesis=r["Potential bottleneck - hypothesis"], impact=r["Possible business impact"],
+                       confirm=r["Confirm or reject on first call"], relationship=rel.get(k, ""))
+    return bank
+
+def match_bank(bank, company):
+    k = _key(company)
+    if not k: return None
+    if k in bank: return bank[k]
+    for bk, v in bank.items():   # containment either way for minor naming differences
+        if len(k) >= 6 and len(bk) >= 6 and (k in bk or bk in k): return v
+    return None
+
+def import_leads(con, path, bank_path=None):
+    bank = load_bank(bank_path) if bank_path else {}
+    n_bank = n_hold = 0
     rows = read_rows(path); n_new = n_upd = n_bad = 0
     for raw in rows:
         r = {_norm(k): v for k, v in raw.items()}
@@ -76,9 +107,15 @@ def import_leads(con, path):
         pick = lambda f: next((str(r[a]).strip() for a in ALIASES[f] if r.get(a) not in (None, "")), "")
         email = pick("email").lower()
         if not EMAIL_RE.match(email): n_bad += 1; continue
-        sig = pick("signal"); why = "from databank"
+        sig = pick("signal"); why = "from databank"; info = match_bank(bank, pick("company")) if bank else None
+        if info:
+            if info["priority"] == "Hold" or any(x in str(info["relationship"]).lower() for x in SKIP_REL): n_hold += 1; continue
+            n_bank += 1
+            if not sig and "require qualification before a specific HRMS bottleneck" not in str(info["hypothesis"]):
+                sig, why = info["hypothesis"], f"account intelligence {info['id']} ({info['population']}, priority {info['priority']})"
         if not sig: sig, why = infer_bottleneck(r)
-        extra = json.dumps({"bottleneck_basis": why, "country": r.get("company country"), "industry": r.get("industry")}, default=str)
+        extra = json.dumps({"bottleneck_basis": why, "country": r.get("company country"), "industry": r.get("industry"),
+                            "bank": info}, default=str)
         vals = (pick("name") or full, pick("company"), pick("title"), sig, 0, extra)
         if con.execute("select 1 from leads where email=?", (email,)).fetchone():
             con.execute("update leads set name=coalesce(nullif(?,''),name), company=coalesce(nullif(?,''),company),"
@@ -87,4 +124,4 @@ def import_leads(con, path):
         else:
             con.execute("insert into leads(name,company,title,signal,signal_score,extra,email) values(?,?,?,?,?,?,?)", (*vals, email)); n_new += 1
     con.commit()
-    return {"rows": len(rows), "new": n_new, "updated": n_upd, "skipped_unverified_invalid_or_contacted": n_bad}
+    return {"rows": len(rows), "matched_to_account_intelligence": n_bank, "held_partner_or_hold": n_hold, "new": n_new, "updated": n_upd, "skipped_unverified_invalid_or_contacted": n_bad}
