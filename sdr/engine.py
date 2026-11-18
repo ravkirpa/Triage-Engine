@@ -24,8 +24,8 @@ def due(con, today=None, cap=None):
         if step:
             campaign, subj, body = templates.render(step, lead)
             out.append(dict(email=lead["email"], lead_id=lead["id"], step=step, day=config.CADENCE_DAYS[step-1],
-                            campaign=campaign, subject=subj, body=body, html_body=templates.to_html(body),
-                            include_gmail_signature=True, calendly_link=config.CALENDLY_LINK))
+                            campaign=campaign, subject=subj, body=body, calendly_link=config.CALENDLY_LINK,
+                            attachment=config.LOGO_PATH))
     return out
 
 def mark_sent(con, email, step, ref="", today=None):

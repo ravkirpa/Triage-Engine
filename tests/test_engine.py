@@ -23,7 +23,8 @@ class T(unittest.TestCase):
         self.assertTrue(d[0]["subject"].startswith("Simplifying "))
         self.assertIn("Hi Ann,", d[0]["body"]); self.assertNotIn("google.com/url", d[0]["body"])
         self.assertEqual(d[0]["calendly_link"], "https://calendly.com/rav-singh-akalinfo/30min")
-        self.assertTrue(d[0]["include_gmail_signature"]); self.assertTrue(d[0]["body"].rstrip().endswith("Thank you so much,"))
+        self.assertNotIn("html_body", d[0]); self.assertIn("Book a Meeting : https://calendly.com/rav-singh-akalinfo/30min", d[0]["body"])
+        self.assertIn("Thank you so much,\n\nBest Regards,\nRav Singh", d[0]["body"])
         self.assertEqual(len(d), 2)  # no-bottleneck lead is still emailed (intent never gates)
     def test_reply_stops_cadence(self):
         t0 = datetime(2026, 1, 1, tzinfo=timezone.utc); engine.mark_sent(self.con, "a@x.com", 1, today=t0)
