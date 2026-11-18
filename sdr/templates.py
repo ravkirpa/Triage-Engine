@@ -5,7 +5,7 @@ def render(step, lead):
     key, c = campaigns.build(lead["signal"])
     first = (lead["name"] or "").split(" ")[0] or "there"
     company = lead["company"] or "your team"
-    cal = config.get("CALENDLY_URL")
+    cal = config.CALENDLY_LINK
     sig = f"Rav Singh\nBook a 30-min meeting: {cal}"
     base = f"Simplifying {c['pain']} at {company}"
     bodies = {

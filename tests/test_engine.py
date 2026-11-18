@@ -1,6 +1,6 @@
 import os, tempfile, unittest
 from datetime import datetime, timedelta, timezone
-os.environ.update(CALENDLY_URL="https://calendly.com/x/y")
+os.environ.update(CALENDLY_URL="https://calendly.com/rav-singh-akalinfo/30min")
 from sdr import db, importer, engine, triage
 
 class T(unittest.TestCase):
@@ -21,7 +21,7 @@ class T(unittest.TestCase):
         d = engine.due(self.con)
         self.assertEqual(d[0]["campaign"], "multi_entity")
         self.assertTrue(d[0]["subject"].startswith("Simplifying "))
-        self.assertIn("Hi Ann,", d[0]["body"]); self.assertIn("calendly.com/x/y", d[0]["body"])
+        self.assertIn("Hi Ann,", d[0]["body"]); self.assertIn("calendly.com/rav-singh-akalinfo/30min", d[0]["body"])
         self.assertEqual(len(d), 2)  # no-bottleneck lead is still emailed (intent never gates)
     def test_reply_stops_cadence(self):
         t0 = datetime(2026, 1, 1, tzinfo=timezone.utc); engine.mark_sent(self.con, "a@x.com", 1, today=t0)

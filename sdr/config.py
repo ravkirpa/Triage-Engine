@@ -15,3 +15,6 @@ def get(key, default=""):
 
 DB_PATH = lambda: get("SDR_DB", "data/sdr.db")
 CADENCE_DAYS = (1, 3, 5, 7, 9, 11)  # day numbers; day 1 = first email
+
+# Fixed on purpose: never read from env or edited. Use exactly as given.
+CALENDLY_LINK = "https://calendly.com/rav-singh-akalinfo/30min"
