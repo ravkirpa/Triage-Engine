@@ -30,4 +30,4 @@ def to_html(body):
     """Plain-text body -> HTML paragraphs. Gmail appends the user's signature (logo + exact Calendly link)."""
     import html
     out = "".join(f"<p>{html.escape(p).replace(chr(10), '<br>')}</p>" for p in body.split("\n\n"))
-    return out.replace("Unified Global Payroll", "<strong>Unified Global Payroll</strong>")
+    return out.replace("Unified Global Payroll and HRIS platform", "<strong>Unified Global Payroll and HRIS platform</strong>")

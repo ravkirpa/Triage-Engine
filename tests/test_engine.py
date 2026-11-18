@@ -23,7 +23,7 @@ class T(unittest.TestCase):
         self.assertTrue(d[0]["subject"].startswith("Simplifying "))
         self.assertIn("Hi Ann,", d[0]["body"]); self.assertNotIn("google.com/url", d[0]["body"])
         self.assertEqual(d[0]["calendly_link"], "https://calendly.com/rav-singh-akalinfo/30min")
-        self.assertIn("<strong>Unified Global Payroll</strong>", d[0]["html_body"]); self.assertIn("a Unified Global Payroll and HRIS platform", d[0]["body"])
+        self.assertIn("<strong>Unified Global Payroll and HRIS platform</strong>", d[0]["html_body"]); self.assertIn("a Unified Global Payroll and HRIS platform", d[0]["body"])
         self.assertIn("<p>", d[0]["html_body"]); self.assertTrue(d[0]["include_gmail_signature"])
         self.assertTrue(d[0]["body"].endswith("Thank you so much,"))
         self.assertEqual(len(d), 2)  # no-bottleneck lead is still emailed (intent never gates)
