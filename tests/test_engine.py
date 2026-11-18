@@ -9,7 +9,7 @@ class T(unittest.TestCase):
         open(f"{d}/l.csv", "w").write("POC Email,POC Name,Company,Bottleneck\na@x.com,Ann Lee,Acme,separate tools across multiple entities\nbad,,,\nb@y.com,Bob,Beta,\n")
         self.res = importer.import_leads(self.con, f"{d}/l.csv")
     def test_import(self):
-        self.assertEqual((self.res["new"], self.res["invalid_email"]), (2, 1))
+        self.assertEqual((self.res["new"], self.res["skipped_unverified_invalid_or_contacted"]), (2, 1))
     def test_cadence_days(self):
         t0 = datetime(2026, 1, 1, tzinfo=timezone.utc); days = []
         for day in range(12):

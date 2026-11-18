@@ -3,7 +3,7 @@ import re
 
 CAMPAIGNS = [
  ("multi_entity", r"multi.?entit|multiple (entit|compan|subsidiar|branch)|subsidiar|group compan|separate (tool|system)|branch|stores",
-  dict(pain="managing payroll and HR across multiple entities",
+  dict(pain="payroll and HR management across multiple entities",
        impact="delays, inconsistent policies and duplicated effort across entities",
        solution="run every entity on one platform, with group-level policies and entity-level customisation",
        value="one consolidated view of the whole workforce and consistent compliance",
@@ -21,7 +21,7 @@ CAMPAIGNS = [
        value="a wage bill that reflects hours actually worked",
        roi="manual reconciliation and payroll disputes")),
  ("workforce_mix", r"contract|off.?roll|on.?roll|apprentic|gig|temp|diverse|worker type|blue.?collar|frontline",
-  dict(pain="managing on-roll, off-roll and contract workers together",
+  dict(pain="managing a mix of on-roll, off-roll and contract workers",
        impact="fragmented records and inconsistent pay and compliance handling",
        solution="manage every worker type on one platform with a single employee record",
        value="one process and one source of truth for the whole workforce",
