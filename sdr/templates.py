@@ -8,7 +8,7 @@ def render(step, lead):
     base = f"Simplifying {c['pain']} at {company}"
     bodies = {
      1: (base,
-         f"Hi {first},\n\nIs {c['pain']} causing {c['impact']}? TankhaPay is a unified global payroll and HRIS platform that helps {c['solution']}, delivering {c['value']} and improving ROI through reduced {c['roi']}.\n\nYou can book a meeting through the Calendly link in my signature, or share a suitable time and I’ll arrange it, and I will be happy to walk you through it!\n\nThank you so much,\n"),
+         f"Hi {first},\n\nIs {c['pain']} causing {c['impact']}? TankhaPay is a Unified Global Payroll and HRIS platform that helps {c['solution']}, delivering {c['value']} and improving ROI through reduced {c['roi']}.\n\nYou can book a meeting through the Calendly link in my signature, or share a suitable time and I’ll arrange it, and I will be happy to walk you through it!\n\nThank you so much,\n"),
      2: ("Re: " + base,
          f"Hi {first},\n\nFollowing up on my note. If {c['pain']} is costing {company} time, TankhaPay can help {c['solution']}.\n\nA quick 30-minute walkthrough is easy to set up through the link in my signature, or share a time that suits you.\n"),
      3: ("Re: " + base,
@@ -29,4 +29,5 @@ def render(step, lead):
 def to_html(body):
     """Plain-text body -> HTML paragraphs. Gmail appends the user's signature (logo + exact Calendly link)."""
     import html
-    return "".join(f"<p>{html.escape(p).replace(chr(10), '<br>')}</p>" for p in body.split("\n\n"))
+    out = "".join(f"<p>{html.escape(p).replace(chr(10), '<br>')}</p>" for p in body.split("\n\n"))
+    return out.replace("Unified Global Payroll", "<strong>Unified Global Payroll</strong>")
