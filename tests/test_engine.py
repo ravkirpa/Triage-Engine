@@ -6,7 +6,7 @@ from sdr import db, importer, engine, triage
 class T(unittest.TestCase):
     def setUp(self):
         d = tempfile.mkdtemp(); self.con = db.connect(f"{d}/t.db")
-        open(f"{d}/l.csv", "w").write("POC Email,POC Name,Company,Bottleneck\na@x.com,Ann Lee,Acme,separate tools across multiple entities\nbad,,,\nb@y.com,Bob,Beta,\n")
+        self.csv = f"{d}/l.csv"; open(f"{d}/l.csv", "w").write("POC Email,POC Name,Company,Bottleneck\na@x.com,Ann Lee,Acme,separate tools across multiple entities\nbad,,,\nb@y.com,Bob,Beta,\n")
         self.res = importer.import_leads(self.con, f"{d}/l.csv")
     def test_import(self):
         self.assertEqual((self.res["new"], self.res["skipped_unverified_invalid_or_contacted"]), (2, 1))
@@ -29,6 +29,14 @@ class T(unittest.TestCase):
         self.assertEqual([d["email"] for d in engine.due(self.con, today=t0 + timedelta(days=2))], ["b@y.com"])
         self.assertEqual(self.con.execute("select count(*) from touches where lead_id=1").fetchone()[0], 1)
         self.assertEqual(self.con.execute("select status from leads where id=1").fetchone()[0], "replied")
+    def test_suppress_blocks_followups_and_reimport(self):
+        triage.suppress(self.con, "a@x.com", "on leave")
+        self.assertEqual([d["email"] for d in engine.due(self.con)], ["b@y.com"])
+        self.con.execute("delete from leads"); self.con.commit()
+        r = importer.import_leads(self.con, self.csv)
+        self.assertEqual(r["new"], 1)
+    def test_left_company(self):
+        self.assertEqual(triage.classify("Automatic reply", "I am no longer working at Netier"), "left_company")
     def test_classify(self):
         self.assertEqual(triage.classify("", "please unsubscribe me"), "unsubscribe")
         self.assertEqual(triage.classify("", "Not interested, thanks"), "not_interested")

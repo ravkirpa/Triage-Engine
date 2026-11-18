@@ -107,6 +107,7 @@ def import_leads(con, path, bank_path=None):
         pick = lambda f: next((str(r[a]).strip() for a in ALIASES[f] if r.get(a) not in (None, "")), "")
         email = pick("email").lower()
         if not EMAIL_RE.match(email): n_bad += 1; continue
+        if con.execute("select 1 from suppressed where email=?", (email,)).fetchone(): n_hold += 1; continue
         sig = pick("signal"); why = "from databank"; info = match_bank(bank, pick("company")) if bank else None
         if info:
             if info["priority"] == "Hold" or any(x in str(info["relationship"]).lower() for x in SKIP_REL): n_hold += 1; continue

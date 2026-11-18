@@ -3,6 +3,7 @@ import re
 
 RULES = [  # order matters
  ("unsubscribe", r"\b(stop|unsubscribe|remove me|do not contact|don'?t contact)\b"),
+ ("left_company", r"(no longer (working|with|at|employed)|has left|have left|left the (company|organi[sz]ation)|ceased (to be )?employ)"),
  ("out_of_office", r"(out of office|auto[- ]?reply|automatic reply|on leave|away until)"),
  ("bounce", r"(delivery status|undeliverable|mailer-daemon|address not found)"),
  ("meeting_booked", r"(calendly|invitation:|accepted:|scheduled|booked)"),
@@ -11,7 +12,14 @@ RULES = [  # order matters
  ("referral", r"\b(reach out to|speak (to|with)|contact|forward(ed)? (this )?to|cc'?d)\b"),
  ("question", r"\?"),
 ]
-TERMINAL = {"unsubscribe": "unsubscribed", "bounce": "bounced", "meeting_booked": "meeting_booked"}
+TERMINAL = {"left_company": "removed", "unsubscribe": "unsubscribed", "bounce": "bounced", "meeting_booked": "meeting_booked"}
+
+def suppress(con, email, reason="manual"):
+    """Permanently remove a person from all follow-ups (also blocks future imports)."""
+    email = email.lower()
+    con.execute("insert or replace into suppressed(email,reason) values(?,?)", (email, reason))
+    con.execute("update leads set status='removed' where email=? and status='active'", (email,))
+    con.commit()
 
 def classify(subject, text):
     blob = f"{subject}\n{text}".lower()
