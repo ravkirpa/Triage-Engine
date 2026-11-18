@@ -1,29 +1,26 @@
-"""Six-step cadence copy. Each step is (subject, body); {placeholders} filled per lead."""
-from . import config
-
-STEPS = {
- 1: ("{company} + {pitch_short}",
-     "Hi {first},\n\n{hook}\n\n{pitch}\n\nWorth a quick look? You can grab a time that suits you here: {calendly}\n"),
- 2: ("Re: {company} + {pitch_short}",
-     "Hi {first},\n\nFollowing up on my note. {hook_short}\n\nTeams in a similar spot usually care about one thing: speed to outcome. Happy to show how, in 20 minutes: {calendly}\n"),
- 3: ("A relevant example for {company}",
-     "Hi {first},\n\nA short example of what we did for a team like yours: {pitch}\n\nIf useful, pick a slot here: {calendly}\n"),
- 4: ("Is this a priority for {company}?",
-     "Hi {first},\n\nI don't want to clutter your inbox. Is this on your radar for the next quarter? If yes, here's my calendar: {calendly}\nIf not, tell me and I'll stop.\n"),
- 5: ("Should I close the loop?",
-     "Hi {first},\n\nStill keen to help {company}. If someone else owns this, a pointer would be great. Otherwise grab a time: {calendly}\n"),
- 6: ("Last note from me",
-     "Hi {first},\n\nI'll stop here so I'm not a nuisance. If timing changes, my calendar is always open: {calendly}\n\nAll the best.\n"),
-}
+"""Step 1 is the user's script verbatim. Steps 2-6 follow the same structure and tone."""
+from . import config, campaigns
 
 def render(step, lead):
+    key, c = campaigns.build(lead["signal"])
     first = (lead["name"] or "").split(" ")[0] or "there"
     company = lead["company"] or "your team"
-    pitch = config.get("PRODUCT_PITCH", "we help teams like yours move faster")
-    sig = (lead["signal"] or "").strip()
-    hook = f"I noticed {company}: {sig}. That's usually when {pitch.split('.')[0].lower()} matters most." if sig else f"I've been following {company} and thought this could be relevant."
-    ctx = dict(first=first, company=company, pitch=pitch, pitch_short=pitch[:40].rstrip(" ,."), hook=hook,
-               hook_short=(f"Re: {sig}." if sig else ""), calendly=config.get("CALENDLY_URL", "<set CALENDLY_URL>"))
-    subj, body = STEPS[step]
-    sign = f"\n{config.get('SENDER_NAME')}\n{config.get('SENDER_TITLE')}, {config.get('SENDER_COMPANY')}\n\nReply 'stop' and I won't contact you again."
-    return subj.format(**ctx), body.format(**ctx) + sign
+    cal = config.get("CALENDLY_URL")
+    sig = f"Rav Singh\nBook a 30-min meeting: {cal}"
+    base = f"Simplifying {c['pain']} at {company}"
+    bodies = {
+     1: (base,
+         f"Hi {first},\n\nIs {c['pain']} causing {c['impact']}? TankhaPay is a unified global payroll and HRIS platform that helps {c['solution']}, delivering {c['value']} and improving ROI through reduced {c['roi']}.\n\nYou can book a meeting through the Calendly link in my signature, or share a suitable time and I’ll arrange it, and I will be happy to walk you through it!\n\nThank you so much and Best Regards,\n"),
+     2: ("Re: " + base,
+         f"Hi {first},\n\nFollowing up on my note. If {c['pain']} is costing {company} time, TankhaPay can help {c['solution']}.\n\nA quick 30-minute walkthrough is easy to set up through the link in my signature, or share a time that suits you.\n\nBest Regards,\n"),
+     3: ("Re: " + base,
+         f"Hi {first},\n\nTeams that move {c['pain']} onto one platform typically see {c['value']}, with less {c['roi']}.\n\nHappy to show you how it would work for {company}. Book a slot via my signature, or tell me what suits you and I’ll arrange it.\n\nBest Regards,\n"),
+     4: ("Re: " + base,
+         f"Hi {first},\n\nIs fixing {c['pain']} a priority for {company} this quarter? If yes, a 30-minute demo will show you exactly how TankhaPay handles it. If not, just tell me and I’ll step back.\n\nBest Regards,\n"),
+     5: ("Re: " + base,
+         f"Hi {first},\n\nIf someone else owns {c['pain']} at {company}, could you point me to them? Otherwise, my calendar link in the signature is open whenever it suits you.\n\nBest Regards,\n"),
+     6: ("Re: " + base,
+         f"Hi {first},\n\nThis is my last note so I don’t clutter your inbox. If timing changes, TankhaPay can help {company} with {c['pain']}, and you can book a time through my signature whenever you’re ready.\n\nThank you and Best Regards,\n"),
+    }
+    subj, body = bodies[step]
+    return key, subj, body + sig + "\n\n(Reply ‘stop’ and I won’t contact you again.)"

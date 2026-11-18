@@ -7,10 +7,8 @@ ALIASES = {
     "name": ["name", "poc name", "contact name", "full name", "poc"],
     "company": ["company", "account", "organization", "company name"],
     "title": ["title", "designation", "role", "job title"],
-    "signal": ["signal", "buyer signal", "buyer signals", "buyer_signal", "intent", "trigger", "bi", "insight"],
+    "signal": ["bottleneck", "bottlenecks", "pain point", "pain points", "pain_point", "challenge", "challenges", "problem", "bi", "insight", "business intelligence", "signal", "buyer signal", "buyer signals"],
 }
-HOT = ["hiring", "funding", "raised", "expansion", "expanding", "new office", "rfp", "evaluating", "migration",
-       "launch", "acquisition", "headcount", "opening", "demo", "pricing", "visited", "intent"]
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 def _norm(h): return re.sub(r"\s+", " ", str(h or "").strip().lower())
@@ -34,10 +32,6 @@ def read_rows(path):
         return [dict(r) for r in con.execute(f'select * from "{t}"')]
     raise SystemExit(f"Unsupported file type: {ext}")
 
-def score(signal):
-    s = (signal or "").lower()
-    return min(100, 20 * sum(k in s for k in HOT)) if s else 0
-
 def import_leads(con, path):
     rows = read_rows(path); n_new = n_upd = n_bad = 0
     for raw in rows:
@@ -47,7 +41,7 @@ def import_leads(con, path):
         if not EMAIL_RE.match(email): n_bad += 1; continue
         known = set(a for v in ALIASES.values() for a in v)
         extra = json.dumps({k: v for k, v in r.items() if k not in known and v not in (None, "")}, default=str)
-        sig = pick("signal"); vals = (pick("name"), pick("company"), pick("title"), sig, score(sig), extra)
+        sig = pick("signal"); vals = (pick("name"), pick("company"), pick("title"), sig, 0, extra)
         if con.execute("select 1 from leads where email=?", (email,)).fetchone():
             con.execute("update leads set name=coalesce(nullif(?,''),name), company=coalesce(nullif(?,''),company),"
                         "title=coalesce(nullif(?,''),title), signal=coalesce(nullif(?,''),signal), signal_score=?, extra=? where email=?",

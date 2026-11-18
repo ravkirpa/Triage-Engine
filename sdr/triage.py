@@ -1,7 +1,5 @@
 """Reply handling: classify inbound mail and stop the cadence when a lead answers."""
-import email, imaplib, re
-from email.header import decode_header, make_header
-from . import config
+import re
 
 RULES = [  # order matters
  ("unsubscribe", r"\b(stop|unsubscribe|remove me|do not contact|don'?t contact)\b"),
@@ -28,26 +26,3 @@ def record_reply(con, lead_id, from_email, subject, text, message_id, received_a
         status = TERMINAL.get(cat, "replied")
         con.execute("update leads set status=?, replied_at=coalesce(replied_at, datetime('now')) where id=? and status='active'", (status, lead_id))
     con.commit(); return cat
-
-def _body(m):
-    if m.is_multipart():
-        for p in m.walk():
-            if p.get_content_type() == "text/plain": return p.get_payload(decode=True).decode(errors="replace")
-        return ""
-    return (m.get_payload(decode=True) or b"").decode(errors="replace")
-
-def poll_inbox(con):
-    """Check IMAP for messages from known leads. Needs IMAP_HOST + SMTP_USER/SMTP_PASSWORD."""
-    if not config.get("IMAP_HOST") or config.get("SDR_SEND") != "1": print("[triage] IMAP skipped (dry run / not configured)"); return []
-    out = []; im = imaplib.IMAP4_SSL(config.get("IMAP_HOST")); im.login(config.get("SMTP_USER"), config.get("SMTP_PASSWORD")); im.select("INBOX")
-    _, ids = im.search(None, "SINCE", "01-Jan-2024")
-    for i in ids[0].split()[-500:]:
-        _, d = im.fetch(i, "(RFC822)"); m = email.message_from_bytes(d[0][1])
-        sender = email.utils.parseaddr(m["From"])[1].lower()
-        lead = con.execute("select id from leads where email=?", (sender,)).fetchone()
-        owner = config.get("OWNER_EMAIL", "").lower()
-        if not lead and sender != owner: continue
-        subj = str(make_header(decode_header(m["Subject"] or "")))
-        cat = record_reply(con, lead["id"] if lead else None, sender, subj, _body(m), m["Message-ID"] or f"imap-{i.decode()}", m["Date"])
-        if cat: out.append((sender, cat))
-    im.logout(); return out
