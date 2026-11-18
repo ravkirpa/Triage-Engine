@@ -24,4 +24,9 @@ def render(step, lead):
     optout = "If this isn’t relevant, just reply ‘stop’ and I won’t contact you again."
     head, _, tail = body.rpartition("\n\n") if step == 1 else (body.rstrip("\n"), "", "")
     body = (head + "\n\n" + optout + "\n\n" + tail) if step == 1 else (head + "\n\n" + optout + "\n")
-    return key, subj, body.rstrip("\n") + "\n\n" + config.SIGNATURE_TEXT
+    return key, subj, body.rstrip("\n")   # signature (logo + exact Calendly link) is added by Gmail
+
+def to_html(body):
+    """Plain-text body -> HTML paragraphs. Gmail appends the user's signature (logo + exact Calendly link)."""
+    import html
+    return "".join(f"<p>{html.escape(p).replace(chr(10), '<br>')}</p>" for p in body.split("\n\n"))
