@@ -14,20 +14,22 @@ def due_step(lead, sent_steps, today=None):
     start = datetime.fromisoformat(lead["started_at"])
     return nxt if today >= start + timedelta(days=config.CADENCE_DAYS[nxt - 1] - 1) else None
 
-def due(con, today=None, cap=None):
-    """Emails due now: up to `cap` new first emails, plus every follow-up that is due. Skips anyone who has replied."""
-    today = today or now(); cap = cap or int(config.get("DAILY_SEND_CAP", "40")); out = []; new = 0
+def due(con, today=None, cap=None, total_cap=None):
+    """Emails due now. Hard limit of `total_cap` a day (default 80). Follow-ups go first (oldest due first);
+    new first emails fill the rest, at most `cap` (default 40). Skips anyone who has replied."""
+    today = today or now(); cap = cap or int(config.get("DAILY_SEND_CAP", "40"))
+    total_cap = total_cap or int(config.get("TOTAL_SEND_CAP", "80")); follow, new = [], []
     for lead in con.execute("select * from leads where status='active' order by id").fetchall():
         steps = [r["step"] for r in con.execute("select step from touches where lead_id=?", (lead["id"],))]
         step = due_step(lead, steps, today)
-        if step == 1 and new >= cap: continue      # cap limits NEW first emails only; follow-ups always go
-        if step:
-            new += step == 1
-            campaign, subj, body = templates.render(step, lead)
-            out.append(dict(email=lead["email"], lead_id=lead["id"], step=step, day=config.CADENCE_DAYS[step-1],
-                            campaign=campaign, subject=subj, body=body, html_body=templates.to_html(body),
-                            include_gmail_signature=True, calendly_link=config.CALENDLY_LINK))
-    return out
+        if not step: continue
+        campaign, subj, body = templates.render(step, lead)
+        item = dict(email=lead["email"], lead_id=lead["id"], step=step, day=config.CADENCE_DAYS[step-1],
+                    campaign=campaign, subject=subj, body=body, html_body=templates.to_html(body),
+                    include_gmail_signature=True, calendly_link=config.CALENDLY_LINK)
+        (new if step == 1 else follow).append(item)
+    follow = follow[:total_cap]                       # anything over the limit slips to the next run
+    return follow + new[:max(0, min(cap, total_cap - len(follow)))]
 
 def mark_sent(con, email, step, ref="", today=None):
     """Record that step N went out (draft sent from Gmail). Starts the day-1 clock on step 1."""

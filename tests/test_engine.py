@@ -47,6 +47,8 @@ class T(unittest.TestCase):
         engine.mark_sent(self.con, d[0]["email"], 1, today=t0)
         d2 = engine.due(self.con, today=t0 + timedelta(days=2), cap=1)
         self.assertEqual(sorted((x["step"]) for x in d2), [1, 2])   # 1 new + 1 follow-up
+        d3 = engine.due(self.con, today=t0 + timedelta(days=2), cap=1, total_cap=1)
+        self.assertEqual([x["step"] for x in d3], [2])               # total limit: follow-up first, new email waits
     def test_classify(self):
         self.assertEqual(triage.classify("", "please unsubscribe me"), "unsubscribe")
         self.assertEqual(triage.classify("", "Not interested, thanks"), "not_interested")
