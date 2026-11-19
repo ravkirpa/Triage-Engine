@@ -9,7 +9,7 @@ CAMPAIGNS = [
        value="one consolidated view of the whole workforce and consistent compliance",
        roi="duplicate data entry and tool sprawl")),
  ("integration", r"integrat|erp|\bsap\b|oracle|disconnect|silo|\bapi\b|spreadsheet|excel|manual data|re.?entry|legacy",
-  dict(pain="disconnected HR, payroll and finance systems",
+  dict(pain="HR, payroll and finance system integration",
        impact="re-keying, reconciliation gaps and slow month-end closes",
        solution="connect payroll and HRIS to SAP, Oracle and 50+ systems through a secure, documented API",
        value="clean data flowing between HR and finance",
@@ -95,7 +95,7 @@ def _build_regex(bottleneck):
         if re.search(rx, b, re.I):
             return key, dict(c)
     return "general", dict(
-        pain=(b.rstrip(".") if 0 < len(b) <= 70 else "running payroll and HR across the business"),
+        pain=(b.rstrip(".") if 0 < len(b) <= 70 else "payroll and HR management across the business"),
         impact="delays, errors and extra manual effort for your HR and finance teams",
         solution="bring global payroll, compliance and HR workflows onto one unified platform",
         value="accurate, on-time payroll and a single view of your workforce",
