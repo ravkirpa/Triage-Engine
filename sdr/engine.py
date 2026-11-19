@@ -15,13 +15,14 @@ def due_step(lead, sent_steps, today=None):
     return nxt if today >= start + timedelta(days=config.CADENCE_DAYS[nxt - 1] - 1) else None
 
 def due(con, today=None, cap=None):
-    """Emails that should go out now (not yet drafted/sent). Skips anyone who has replied."""
-    today = today or now(); cap = cap or int(config.get("DAILY_SEND_CAP", "40")); out = []
+    """Emails due now: up to `cap` new first emails, plus every follow-up that is due. Skips anyone who has replied."""
+    today = today or now(); cap = cap or int(config.get("DAILY_SEND_CAP", "40")); out = []; new = 0
     for lead in con.execute("select * from leads where status='active' order by id").fetchall():
-        if len(out) >= cap: break
         steps = [r["step"] for r in con.execute("select step from touches where lead_id=?", (lead["id"],))]
         step = due_step(lead, steps, today)
+        if step == 1 and new >= cap: continue      # cap limits NEW first emails only; follow-ups always go
         if step:
+            new += step == 1
             campaign, subj, body = templates.render(step, lead)
             out.append(dict(email=lead["email"], lead_id=lead["id"], step=step, day=config.CADENCE_DAYS[step-1],
                             campaign=campaign, subject=subj, body=body, html_body=templates.to_html(body),

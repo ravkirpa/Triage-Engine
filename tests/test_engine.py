@@ -41,6 +41,12 @@ class T(unittest.TestCase):
         self.assertEqual(r["new"], 1)
     def test_left_company(self):
         self.assertEqual(triage.classify("Automatic reply", "I am no longer working at Netier"), "left_company")
+    def test_cap_limits_new_emails_not_followups(self):
+        t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        d = engine.due(self.con, today=t0, cap=1); self.assertEqual(len(d), 1)
+        engine.mark_sent(self.con, d[0]["email"], 1, today=t0)
+        d2 = engine.due(self.con, today=t0 + timedelta(days=2), cap=1)
+        self.assertEqual(sorted((x["step"]) for x in d2), [1, 2])   # 1 new + 1 follow-up
     def test_classify(self):
         self.assertEqual(triage.classify("", "please unsubscribe me"), "unsubscribe")
         self.assertEqual(triage.classify("", "Not interested, thanks"), "not_interested")
