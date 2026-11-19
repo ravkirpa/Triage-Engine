@@ -20,7 +20,7 @@ class T(unittest.TestCase):
     def test_script_and_campaign(self):
         d = engine.due(self.con)
         self.assertEqual(d[0]["campaign"], "multi_entity")
-        self.assertTrue(d[0]["subject"].startswith("Simplifying "))
+        self.assertEqual(d[0]["subject"], "Simplifying payroll and HR management across multiple entities")
         self.assertIn("Hi Ann,", d[0]["body"]); self.assertNotIn("google.com/url", d[0]["body"])
         self.assertEqual(d[0]["calendly_link"], "https://calendly.com/rav-singh-akalinfo/30min")
         self.assertIn("<strong>Unified Global Payroll and HRIS platform</strong>", d[0]["html_body"]); self.assertIn("a Unified Global Payroll and HRIS platform", d[0]["body"])

@@ -1,23 +1,25 @@
 """Step 1 is the user's script verbatim. Steps 2-6 follow the same structure and tone."""
 from . import config, campaigns
 
+FIXED_SUBJECT = "Simplifying payroll and HR management across multiple entities"   # fixed by the user for every email
+
 def render(step, lead):
     key, c = campaigns.build(lead["signal"])
     first = "there" if "shared inbox" in (lead["title"] or "").lower() else ((lead["name"] or "").split(" ")[0] or "there")
     company = lead["company"] or "your team"
-    base = f"Simplifying {c['pain']} at {company}"
+    base = FIXED_SUBJECT
     bodies = {
      1: (base,
          f"Hi {first},\n\nIs {c['pain']} causing {c['impact']}? TankhaPay is a Unified Global Payroll and HRIS platform that helps {c['solution']}, delivering {c['value']} and improving ROI through reduced {c['roi']}.\n\nYou can book a meeting through the Calendly link in my signature, or share a suitable time and I’ll arrange it, and I will be happy to walk you through it!\n\nThank you so much,\n"),
-     2: ("Re: " + base,
+     2: (base,
          f"Hi {first},\n\nFollowing up on my note. If {c['pain']} is costing {company} time, TankhaPay can help {c['solution']}.\n\nA quick 30-minute walkthrough is easy to set up through the link in my signature, or share a time that suits you.\n"),
-     3: ("Re: " + base,
+     3: (base,
          f"Hi {first},\n\nTeams that move {c['pain']} onto one platform typically see {c['value']}, with less {c['roi']}.\n\nHappy to show you how it would work for {company}. Book a slot via my signature, or tell me what suits you and I’ll arrange it.\n"),
-     4: ("Re: " + base,
+     4: (base,
          f"Hi {first},\n\nIs fixing {c['pain']} a priority for {company} this quarter? If yes, a 30-minute demo will show you exactly how TankhaPay handles it. If not, just tell me and I’ll step back.\n"),
-     5: ("Re: " + base,
+     5: (base,
          f"Hi {first},\n\nIf someone else owns {c['pain']} at {company}, could you point me to them? Otherwise, my calendar link in the signature is open whenever it suits you.\n"),
-     6: ("Re: " + base,
+     6: (base,
          f"Hi {first},\n\nThis is my last note so I don’t clutter your inbox. If timing changes, TankhaPay can help {company} with {c['pain']}, and you can book a time through my signature whenever you’re ready.\n"),
     }
     subj, body = bodies[step]
