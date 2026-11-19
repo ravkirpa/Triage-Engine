@@ -3,7 +3,7 @@ from . import config, campaigns
 
 def render(step, lead):
     key, c = campaigns.build(lead["signal"])
-    first = (lead["name"] or "").split(" ")[0] or "there"
+    first = "there" if "shared inbox" in (lead["title"] or "").lower() else ((lead["name"] or "").split(" ")[0] or "there")
     company = lead["company"] or "your team"
     base = f"Simplifying {c['pain']} at {company}"
     bodies = {

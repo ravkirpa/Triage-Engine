@@ -21,8 +21,8 @@ CAMPAIGNS = [
        value="accurate payroll every cycle and on-time filings",
        roi="rework, manual corrections and penalty costs")),
  ("attendance", r"attendance|proxy|punch|shift|roster|time.?track|leave|geofenc",
-  dict(pain="attendance tracking and proxy punching",
-       impact="an inflated wage bill and hours of manual reconciliation",
+  dict(pain="attendance and shift management",
+       impact="manual reconciliation and payroll disputes",
        solution="verify attendance with geofencing and face check, feeding straight into payroll",
        value="a wage bill that reflects hours actually worked",
        roi="manual reconciliation and payroll disputes")),
@@ -95,7 +95,7 @@ def _build_regex(bottleneck):
         if re.search(rx, b, re.I):
             return key, dict(c)
     return "general", dict(
-        pain=b.rstrip(".") or "running payroll and HR across the business",
+        pain=(b.rstrip(".") if 0 < len(b) <= 70 else "running payroll and HR across the business"),
         impact="delays, errors and extra manual effort for your HR and finance teams",
         solution="bring global payroll, compliance and HR workflows onto one unified platform",
         value="accurate, on-time payroll and a single view of your workforce",

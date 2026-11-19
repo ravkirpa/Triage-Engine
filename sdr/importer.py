@@ -108,7 +108,11 @@ def import_leads(con, path, bank_path=None):
         email = pick("email").lower()
         if not EMAIL_RE.match(email): n_bad += 1; continue
         if con.execute("select 1 from suppressed where email=?", (email,)).fetchone(): n_hold += 1; continue
-        sig = pick("signal"); why = "from databank"; info = match_bank(bank, pick("company")) if bank else None
+        sig = pick("signal"); why = "from databank"
+        if sig.lstrip().startswith("Identity unresolved"): n_bad += 1; continue     # shortlist: company not verified
+        m = re.search(r"Potential bottleneck\s*[—-]\s*([^\n]+)", sig)
+        if m: sig, why = m.group(1).strip(), "shortlist evidence"
+        info = match_bank(bank, pick("company")) if bank else None
         if info:
             if info["priority"] == "Hold" or any(x in str(info["relationship"]).lower() for x in SKIP_REL): n_hold += 1; continue
             n_bank += 1
