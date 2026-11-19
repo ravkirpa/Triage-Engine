@@ -49,6 +49,15 @@ class T(unittest.TestCase):
         self.assertEqual(sorted((x["step"]) for x in d2), [1, 2])   # 1 new + 1 follow-up
         d3 = engine.due(self.con, today=t0 + timedelta(days=2), cap=1, total_cap=1)
         self.assertEqual([x["step"] for x in d3], [2])               # total limit: follow-up first, new email waits
+    def test_drafts_wait_for_approval(self):
+        t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        engine.mark_drafted(self.con, "a@x.com", 1, ref="d1", today=t0)
+        self.assertNotIn("a@x.com", [x["email"] for x in engine.due(self.con, today=t0 + timedelta(days=1))])  # no re-draft
+        self.assertIsNone(self.con.execute("select started_at from leads where email='a@x.com'").fetchone()[0])
+        t1 = t0 + timedelta(days=1); self.assertEqual(engine.approve(self.con, today=t1), 1)
+        self.assertEqual(self.con.execute("select started_at is not null from leads where email='a@x.com'").fetchone()[0], 1)
+        self.assertNotIn("a@x.com", [x["email"] for x in engine.due(self.con, today=t1 + timedelta(days=1))])
+        self.assertIn("a@x.com", [x["email"] for x in engine.due(self.con, today=t1 + timedelta(days=2))])  # day 3 follow-up
     def test_classify(self):
         self.assertEqual(triage.classify("", "please unsubscribe me"), "unsubscribe")
         self.assertEqual(triage.classify("", "Not interested, thanks"), "not_interested")

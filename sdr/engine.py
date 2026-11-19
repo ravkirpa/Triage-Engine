@@ -10,7 +10,7 @@ def due_step(lead, sent_steps, today=None):
     if lead["status"] != "active": return None
     nxt = len(sent_steps) + 1
     if nxt > len(config.CADENCE_DAYS): return None
-    if not lead["started_at"]: return 1
+    if not lead["started_at"]: return None if sent_steps else 1   # step 1 drafted, awaiting approval
     start = datetime.fromisoformat(lead["started_at"])
     return nxt if today >= start + timedelta(days=config.CADENCE_DAYS[nxt - 1] - 1) else None
 
@@ -42,8 +42,25 @@ def mark_sent(con, email, step, ref="", today=None):
     if step == len(config.CADENCE_DAYS): con.execute("update leads set status='completed' where id=? and status='active'", (lead["id"],))
     con.commit()
 
+def mark_drafted(con, email, step, ref="", today=None):
+    """Fallback mode: a Gmail draft exists, awaiting the user's approval. Does not start the follow-up clock."""
+    today = today or now(); lead = con.execute("select * from leads where email=?", (email.lower(),)).fetchone()
+    if not lead: raise SystemExit(f"unknown lead {email}")
+    _, subj, body = templates.render(step, lead)
+    con.execute("insert or ignore into touches(lead_id,step,subject,body,message_id,sent_at,dry_run) values(?,?,?,?,?,?,2)",
+                (lead["id"], step, subj, body, ref, today.isoformat())); con.commit()
+
+def approve(con, today=None):
+    """User approved and the drafts were sent: turn drafts into sends and start the clock for step 1."""
+    today = today or now(); rows = con.execute("select lead_id, step from touches where dry_run=2").fetchall()
+    for r in rows:
+        con.execute("update touches set dry_run=0, sent_at=? where lead_id=? and step=?", (today.isoformat(), r["lead_id"], r["step"]))
+        if r["step"] == 1: con.execute("update leads set started_at=? where id=? and started_at is null", (today.isoformat(), r["lead_id"]))
+    con.commit(); return len(rows)
+
 def report(con):
     q = lambda s: con.execute(s).fetchall()
     return {"leads_by_status": {r[0]: r[1] for r in q("select status,count(*) from leads group by 1")},
             "replies_by_category": {r[0]: r[1] for r in q("select category,count(*) from replies group by 1")},
+            "drafts_awaiting_approval": con.execute("select count(*) from touches where dry_run=2").fetchone()[0],
             "needs_your_attention": [dict(r) for r in q("select l.name,l.company,l.email,r.category,r.snippet from replies r join leads l on l.id=r.lead_id where r.category in ('interested','question','referral','meeting_booked') order by r.id desc limit 20")]}
