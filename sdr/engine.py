@@ -60,6 +60,22 @@ def approve(con, today=None):
         if r["step"] == 1: con.execute("update leads set started_at=? where id=? and started_at is null", (today.isoformat(), r["lead_id"]))
     con.commit(); return len(rows)
 
+def mark_legacy_subjects(con):
+    """Leads already emailed keep the old subject so follow-ups stay in their thread; new leads get the per-company subject."""
+    import json
+    n = 0
+    for r in con.execute("select id, extra from leads where id in (select lead_id from touches)").fetchall():
+        e = json.loads(r["extra"] or "{}")
+        if not e.get("legacy_subject"):
+            e["legacy_subject"] = True; con.execute("update leads set extra=? where id=?", (json.dumps(e), r["id"])); n += 1
+    con.commit(); return n
+
+def release(con, source="Singapore outreach"):
+    """Approved: move held leads to active. Returns their emails."""
+    rows = con.execute("select email from leads where status='hold' and json_extract(extra,'$.source')=?", (source,)).fetchall()
+    con.execute("update leads set status='active' where status='hold' and json_extract(extra,'$.source')=?", (source,)); con.commit()
+    return [r["email"] for r in rows]
+
 def report(con):
     q = lambda s: con.execute(s).fetchall()
     return {"leads_by_status": {r[0]: r[1] for r in q("select status,count(*) from leads group by 1")},

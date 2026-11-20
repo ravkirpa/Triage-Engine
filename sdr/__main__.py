@@ -1,5 +1,5 @@
 import argparse, json
-from . import config, db, importer, engine, triage
+from . import config, db, importer, engine, triage, sg_outreach
 
 def main():
     config.load_env()
@@ -12,6 +12,9 @@ def main():
     d = sub.add_parser("drafted", help="record a Gmail draft awaiting approval"); d.add_argument("email"); d.add_argument("step", type=int); d.add_argument("--ref", default="")
     sub.add_parser("approve", help="user approved: mark all pending drafts as sent")
     c = sub.add_parser("cover", help="add the cover/HR contact named in an auto-reply"); c.add_argument("original"); c.add_argument("cover_email"); c.add_argument("--reason", default="covering")
+    g = sub.add_parser("ingest-sg", help="load the Singapore outreach list on hold (quote mode)"); g.add_argument("path")
+    sub.add_parser("release-sg", help="approved: release the held Singapore leads")
+    sub.add_parser("legacy-subjects", help="keep already-emailed leads on their original subject")
     sub.add_parser("report", help="pipeline + reply triage summary")
     r = sub.add_parser("reply", help="log an inbound reply (stops the cadence)"); r.add_argument("email"); r.add_argument("text"); r.add_argument("--subject", default=""); r.add_argument("--id", default="")
     a = ap.parse_args(); con = db.connect()
@@ -22,6 +25,9 @@ def main():
     elif a.cmd == "drafted": engine.mark_drafted(con, a.email, a.step, a.ref); print("ok")
     elif a.cmd == "approve": print(engine.approve(con), "drafts marked sent")
     elif a.cmd == "cover": print("added" if triage.add_cover(con, a.original, a.cover_email, a.reason) else "already known")
+    elif a.cmd == "ingest-sg": print(json.dumps(sg_outreach.load(con, a.path), indent=1))
+    elif a.cmd == "release-sg": print(json.dumps(engine.release(con)))
+    elif a.cmd == "legacy-subjects": print(engine.mark_legacy_subjects(con), "leads kept on the original subject")
     elif a.cmd == "report": print(json.dumps(engine.report(con), indent=2))
     elif a.cmd == "reply":
         l = con.execute("select id from leads where email=?", (a.email.lower(),)).fetchone()

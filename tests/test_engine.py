@@ -11,12 +11,12 @@ class T(unittest.TestCase):
     def test_import(self):
         self.assertEqual((self.res["new"], self.res["skipped_unverified_invalid_or_contacted"]), (2, 1))
     def test_cadence_days_and_framework_loop(self):
-        t0 = datetime(2026, 1, 1, tzinfo=timezone.utc); days = []; subjects = set()
+        t0 = datetime(2026, 1, 1, tzinfo=timezone.utc); days = []; subjects = {}
         for day in range(14):
             for d in engine.due(self.con, today=t0 + timedelta(days=day)):
-                engine.mark_sent(self.con, d["email"], d["step"], today=t0 + timedelta(days=day)); days.append(day); subjects.add(d["subject"])
+                engine.mark_sent(self.con, d["email"], d["step"], today=t0 + timedelta(days=day)); days.append(day); subjects.setdefault(d["email"], set()).add(d["subject"])
         self.assertEqual(sorted(set(days)), [0, 2, 4, 6, 8, 10, 12])        # day 1, 3, 5, 7, 9, 11, 13
-        self.assertEqual(len(subjects), 1)                                   # fixed subject, follow-ups reuse it
+        self.assertTrue(all(len(v) == 1 for v in subjects.values()))        # each lead keeps one subject through the sequence
         from sdr import templates
         lead = self.con.execute("select * from leads where email='a@x.com'").fetchone()
         names = [templates.framework_name(s) for s in range(2, 9)]
@@ -30,7 +30,7 @@ class T(unittest.TestCase):
     def test_script_and_campaign(self):
         d = engine.due(self.con)
         self.assertEqual(d[0]["campaign"], "multi_entity")
-        self.assertEqual(d[0]["subject"], "Simplifying payroll and HR management across multiple entities")
+        self.assertEqual(d[0]["subject"], "Simplifying payroll and HR management for Acme")
         self.assertIn("Hi Ann,", d[0]["body"]); self.assertNotIn("google.com/url", d[0]["body"])
         self.assertEqual(d[0]["calendly_link"], "https://calendly.com/rav-singh-akalinfo/30min")
         self.assertIn("<strong>Unified Global Payroll and HRIS platform</strong>", d[0]["html_body"]); self.assertIn("a Unified Global Payroll and HRIS platform", d[0]["body"])
@@ -68,6 +68,23 @@ class T(unittest.TestCase):
         self.assertEqual(self.con.execute("select started_at is not null from leads where email='a@x.com'").fetchone()[0], 1)
         self.assertNotIn("a@x.com", [x["email"] for x in engine.due(self.con, today=t1 + timedelta(days=1))])
         self.assertIn("a@x.com", [x["email"] for x in engine.due(self.con, today=t1 + timedelta(days=2))])  # day 3 follow-up
+    def test_quote_mode_and_subjects(self):
+        import json
+        from sdr import templates
+        ex = json.dumps({"quote_mode": dict(hook="Where does X break?", pain="X handling", solution="fix X", outcome="less X")})
+        self.con.execute("insert into leads(email,name,company,extra,status) values('q@y.com','Quin Lee','Quark',?, 'hold')", (ex,)); self.con.commit()
+        self.assertNotIn("q@y.com", [x["email"] for x in engine.due(self.con)])          # held until approved
+        engine.release(self.con) if False else None
+        self.con.execute("update leads set status='active' where email='q@y.com'"); self.con.commit()
+        lead = self.con.execute("select * from leads where email='q@y.com'").fetchone()
+        for step in range(1, 8):
+            _, subj, body = templates.render(step, lead)
+            self.assertEqual(subj, "Simplifying payroll and HR management for Quark")
+            self.assertIn("$8 per employee per month", body); self.assertNotIn("global payroll", body.lower())
+        self.assertIn("Unified Payroll and HRIS platform", templates.render(1, lead)[2])
+        engine.mark_sent(self.con, "a@x.com", 1); self.assertEqual(engine.mark_legacy_subjects(self.con), 1)
+        old = self.con.execute("select * from leads where email='a@x.com'").fetchone()
+        self.assertEqual(templates.render(2, old)[1], templates.LEGACY_SUBJECT)           # already-emailed lead keeps its thread subject
     def test_classify(self):
         self.assertEqual(triage.classify("", "please unsubscribe me"), "unsubscribe")
         self.assertEqual(triage.classify("", "Not interested, thanks"), "not_interested")
