@@ -10,13 +10,23 @@ class T(unittest.TestCase):
         self.res = importer.import_leads(self.con, f"{d}/l.csv")
     def test_import(self):
         self.assertEqual((self.res["new"], self.res["skipped_unverified_invalid_or_contacted"]), (2, 1))
-    def test_cadence_days(self):
-        t0 = datetime(2026, 1, 1, tzinfo=timezone.utc); days = []
-        for day in range(12):
+    def test_cadence_days_and_framework_loop(self):
+        t0 = datetime(2026, 1, 1, tzinfo=timezone.utc); days = []; subjects = set()
+        for day in range(14):
             for d in engine.due(self.con, today=t0 + timedelta(days=day)):
-                engine.mark_sent(self.con, d["email"], d["step"], today=t0 + timedelta(days=day)); days.append(day)
-        self.assertEqual(sorted(set(days)), [0, 2, 4, 6, 8, 10])
-        self.assertEqual(self.con.execute("select count(*) from touches").fetchone()[0], 12)
+                engine.mark_sent(self.con, d["email"], d["step"], today=t0 + timedelta(days=day)); days.append(day); subjects.add(d["subject"])
+        self.assertEqual(sorted(set(days)), [0, 2, 4, 6, 8, 10, 12])        # day 1, 3, 5, 7, 9, 11, 13
+        self.assertEqual(len(subjects), 1)                                   # fixed subject, follow-ups reuse it
+        from sdr import templates
+        lead = self.con.execute("select * from leads where email='a@x.com'").fetchone()
+        names = [templates.framework_name(s) for s in range(2, 9)]
+        self.assertEqual(names, ["Problem", "Insight", "Proof", "Solution", "Next step", "Problem", "Insight"])
+        self.assertEqual(templates.render(7, lead)[2], templates.render(2, lead)[2])   # step 7 loops back to follow-up 1
+        self.assertIn("26+ years", templates.render(4, lead)[2]); self.assertIn("30-minute walkthrough", templates.render(6, lead)[2])
+    def test_cover_contacts(self):
+        txt = "I am on leave. Please contact rebecca@macfarmmanagement.com. IT: support@netier.com.au. Eva eva@macfarmmanagement.com"
+        self.assertEqual(triage.cover_contacts(txt, "eva@macfarmmanagement.com"), ["rebecca@macfarmmanagement.com"])
+        self.assertTrue(triage.add_cover(self.con, "a@x.com", "cover@x.com", "on leave")); self.assertFalse(triage.add_cover(self.con, "a@x.com", "cover@x.com"))
     def test_script_and_campaign(self):
         d = engine.due(self.con)
         self.assertEqual(d[0]["campaign"], "multi_entity")

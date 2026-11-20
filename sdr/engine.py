@@ -5,14 +5,17 @@ from . import config, templates
 
 def now(): return datetime.now(timezone.utc)
 
+def day_offset(step):
+    """Step 1 on day 1; every later step 2 days after the previous one (day 3, 5, 7, 9, 11, 13, ...)."""
+    return 2 * (step - 1)
+
 def due_step(lead, sent_steps, today=None):
     today = today or now()
     if lead["status"] != "active": return None
     nxt = len(sent_steps) + 1
-    if nxt > len(config.CADENCE_DAYS): return None
     if not lead["started_at"]: return None if sent_steps else 1   # step 1 drafted, awaiting approval
     start = datetime.fromisoformat(lead["started_at"])
-    return nxt if today >= start + timedelta(days=config.CADENCE_DAYS[nxt - 1] - 1) else None
+    return nxt if today >= start + timedelta(days=day_offset(nxt)) else None
 
 def due(con, today=None, cap=None, total_cap=None):
     """Emails due now. Hard limit of `total_cap` a day (default 80). Follow-ups go first (oldest due first);
@@ -24,7 +27,7 @@ def due(con, today=None, cap=None, total_cap=None):
         step = due_step(lead, steps, today)
         if not step: continue
         campaign, subj, body = templates.render(step, lead)
-        item = dict(email=lead["email"], lead_id=lead["id"], step=step, day=config.CADENCE_DAYS[step-1],
+        item = dict(email=lead["email"], lead_id=lead["id"], step=step, day=day_offset(step) + 1,
                     campaign=campaign, subject=subj, body=body, html_body=templates.to_html(body),
                     include_gmail_signature=True, calendly_link=config.CALENDLY_LINK)
         (new if step == 1 else follow).append(item)
@@ -39,7 +42,6 @@ def mark_sent(con, email, step, ref="", today=None):
     con.execute("insert or ignore into touches(lead_id,step,subject,body,message_id,sent_at) values(?,?,?,?,?,?)",
                 (lead["id"], step, subj, body, ref, today.isoformat()))
     if step == 1: con.execute("update leads set started_at=? where id=?", (today.isoformat(), lead["id"]))
-    if step == len(config.CADENCE_DAYS): con.execute("update leads set status='completed' where id=? and status='active'", (lead["id"],))
     con.commit()
 
 def mark_drafted(con, email, step, ref="", today=None):

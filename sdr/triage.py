@@ -34,3 +34,29 @@ def record_reply(con, lead_id, from_email, subject, text, message_id, received_a
         status = TERMINAL.get(cat, "replied")
         con.execute("update leads set status=?, replied_at=coalesce(replied_at, datetime('now')) where id=? and status='active'", (status, lead_id))
     con.commit(); return cat
+
+import re as _re
+EMAIL_ANY = _re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+NOT_HR = ("support@", "noreply@", "no-reply@", "it@", "helpdesk@", "mailer-daemon@", "postmaster@")
+
+def cover_contacts(text, own_email, our_emails=()):
+    """Addresses named in an auto-reply as cover or HR contacts (not the sender, not us, not IT/support lines)."""
+    skip = {own_email.lower(), *[e.lower() for e in our_emails]}
+    seen = []
+    for e in EMAIL_ANY.findall(text or ""):
+        e = e.lower().rstrip(".")
+        if e in skip or e in seen or e.startswith(NOT_HR) or e.split("@")[-1].endswith(("trendmicro.com",)): continue
+        seen.append(e)
+    return seen
+
+def add_cover(con, original_email, cover_email, reason="covering"):
+    """Add the covering/HR person named in an auto-reply as a new lead, same company and bottleneck. Returns True if added."""
+    import json
+    o = con.execute("select * from leads where email=?", (original_email.lower(),)).fetchone()
+    cover_email = cover_email.lower()
+    if con.execute("select 1 from leads where email=?", (cover_email,)).fetchone() or con.execute("select 1 from suppressed where email=?", (cover_email,)).fetchone():
+        return False
+    company = o["company"] if o else ""; sig = o["signal"] if o else ""
+    extra = json.dumps({"bottleneck_basis": "cover contact", "covering_for": original_email, "reason": reason})
+    con.execute("insert into leads(email,name,company,title,signal,signal_score,extra) values(?,?,?,?,?,0,?)",
+                (cover_email, "", company, f"cover contact ({reason})", sig, extra)); con.commit(); return True

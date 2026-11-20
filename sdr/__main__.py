@@ -11,6 +11,7 @@ def main():
     x = sub.add_parser("suppress", help="remove a person from all follow-ups"); x.add_argument("email"); x.add_argument("--reason", default="manual")
     d = sub.add_parser("drafted", help="record a Gmail draft awaiting approval"); d.add_argument("email"); d.add_argument("step", type=int); d.add_argument("--ref", default="")
     sub.add_parser("approve", help="user approved: mark all pending drafts as sent")
+    c = sub.add_parser("cover", help="add the cover/HR contact named in an auto-reply"); c.add_argument("original"); c.add_argument("cover_email"); c.add_argument("--reason", default="covering")
     sub.add_parser("report", help="pipeline + reply triage summary")
     r = sub.add_parser("reply", help="log an inbound reply (stops the cadence)"); r.add_argument("email"); r.add_argument("text"); r.add_argument("--subject", default=""); r.add_argument("--id", default="")
     a = ap.parse_args(); con = db.connect()
@@ -20,6 +21,7 @@ def main():
     elif a.cmd == "suppress": triage.suppress(con, a.email, a.reason); print("removed", a.email)
     elif a.cmd == "drafted": engine.mark_drafted(con, a.email, a.step, a.ref); print("ok")
     elif a.cmd == "approve": print(engine.approve(con), "drafts marked sent")
+    elif a.cmd == "cover": print("added" if triage.add_cover(con, a.original, a.cover_email, a.reason) else "already known")
     elif a.cmd == "report": print(json.dumps(engine.report(con), indent=2))
     elif a.cmd == "reply":
         l = con.execute("select id from leads where email=?", (a.email.lower(),)).fetchone()
