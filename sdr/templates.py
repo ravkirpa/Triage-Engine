@@ -4,7 +4,8 @@ Claims come only from the TankhaPay deck/site (26+ years, 1,000+ businesses, ISO
 from . import config, campaigns
 
 LEGACY_SUBJECT = "Simplifying payroll and HR management across multiple entities"   # leads already emailed under it keep it (same thread)
-QUOTE = "Payroll and HRIS together is $8 per employee per month."                # quoted in every email to quote-mode leads
+QUOTE = "Payroll and HRIS together is $8 per employee per month."
+PRODUCT_SG = "TankhaPay is a Unified Payroll and HRIS platform that helps bring payroll and HR data for each country onto one platform at $8 per employee per month."                # quoted in every email to quote-mode leads
 
 def subject_for(lead, extra):
     return LEGACY_SUBJECT if extra.get("legacy_subject") else f"Simplifying payroll and HR management for {lead['company'] or 'your team'}"
@@ -25,7 +26,7 @@ def render_quote(step, lead, extra):
     o = extra["quote_mode"]; first = (lead["name"] or "").split(" ")[0] or "there"; company = lead["company"] or "your team"
     hi = f"Hi {first},"; subj = subject_for(lead, extra)
     if step == 1:
-        mid = (f"{o['hook']} TankhaPay is a Unified Payroll and HRIS platform that helps {o['solution']}. {QUOTE}\n\n"
+        mid = (f"{o['hook']} {PRODUCT_SG}\n\n"
                "Would a 30-minute walkthrough make sense? Book through the Calendly link in my signature, or reply with a time that suits you and I will arrange it.")
         return "sg_quote", subj, f"{hi}\n\n{mid}\n\n{OPTOUT}\n\nThank you so much,"
     part = framework_name(step)
@@ -73,6 +74,8 @@ def to_html(body):
     """Plain-text body -> HTML paragraphs. Gmail appends the user's signature (logo + exact Calendly link)."""
     import html
     out = "".join(f"<p>{html.escape(p).replace(chr(10), '<br>')}</p>" for p in body.split("\n\n"))
-    for phrase in ("Unified Global Payroll and HRIS platform", "Unified Payroll and HRIS platform"):
-        out = out.replace(phrase, f"<strong>{phrase}</strong>")
+    out = out.replace(PRODUCT_SG, f"<strong>{PRODUCT_SG}</strong>").replace(QUOTE, f"<strong>{QUOTE}</strong>")   # Singapore list: product sentence and quote in bold
+    if PRODUCT_SG not in body:
+        for phrase in ("Unified Global Payroll and HRIS platform", "Unified Payroll and HRIS platform"):
+            out = out.replace(phrase, f"<strong>{phrase}</strong>")
     return out

@@ -81,7 +81,10 @@ class T(unittest.TestCase):
             _, subj, body = templates.render(step, lead)
             self.assertEqual(subj, "Simplifying payroll and HR management for Quark")
             self.assertIn("$8 per employee per month", body); self.assertNotIn("global payroll", body.lower())
-        self.assertIn("Unified Payroll and HRIS platform", templates.render(1, lead)[2])
+        b1 = templates.render(1, lead)[2]
+        self.assertIn("TankhaPay is a Unified Payroll and HRIS platform that helps bring payroll and HR data for each country onto one platform at $8 per employee per month", b1)
+        self.assertIn("<strong>" + templates.PRODUCT_SG + "</strong>", templates.to_html(b1))
+        self.assertIn("<strong>" + templates.QUOTE + "</strong>", templates.to_html(templates.render(3, lead)[2]))
         engine.mark_sent(self.con, "a@x.com", 1); self.assertEqual(engine.mark_legacy_subjects(self.con), 1)
         old = self.con.execute("select * from leads where email='a@x.com'").fetchone()
         self.assertEqual(templates.render(2, old)[1], templates.LEGACY_SUBJECT)           # already-emailed lead keeps its thread subject
