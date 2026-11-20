@@ -5,29 +5,32 @@ from . import config, templates
 
 def now(): return datetime.now(timezone.utc)
 
-def day_offset(step):
-    """Step 1 on day 1; every later step 2 days after the previous one (day 3, 5, 7, 9, 11, 13, ...)."""
-    return 2 * (step - 1)
+MAX_STEPS = 11   # first email + 2 full rounds of the 5-part framework (10 follow-ups), then stop
 
-def due_step(lead, sent_steps, today=None):
+def due_step(lead, sent_steps, today=None, last_sent=None):
+    """Next step due: one email per lead per weekday (never Sat/Sun), until a reply or step MAX_STEPS."""
     today = today or now()
     if lead["status"] != "active": return None
     nxt = len(sent_steps) + 1
+    if nxt > MAX_STEPS: return None
     if not lead["started_at"]: return None if sent_steps else 1   # step 1 drafted, awaiting approval
-    start = datetime.fromisoformat(lead["started_at"])
-    return nxt if today >= start + timedelta(days=day_offset(nxt)) else None
+    if today.weekday() >= 5: return None
+    if last_sent and today.date() <= last_sent.date(): return None  # at most one email per day
+    return nxt
 
 def due(con, today=None, cap=None, total_cap=None):
     """Emails due now. Hard limit of `total_cap` a day (default 80). Follow-ups go first (oldest due first);
     new first emails fill the rest, at most `cap` (default 40). Skips anyone who has replied."""
     today = today or now(); cap = cap or int(config.get("DAILY_SEND_CAP", "40"))
     total_cap = total_cap or int(config.get("TOTAL_SEND_CAP", "80")); follow, new = [], []
+    if today.weekday() >= 5: return []                  # no sends on Saturday or Sunday (new leads included)
     for lead in con.execute("select * from leads where status='active' order by id").fetchall():
-        steps = [r["step"] for r in con.execute("select step from touches where lead_id=?", (lead["id"],))]
-        step = due_step(lead, steps, today)
+        trows = con.execute("select step, sent_at from touches where lead_id=?", (lead["id"],)).fetchall()
+        steps = [r["step"] for r in trows]; last = max((datetime.fromisoformat(r["sent_at"]) for r in trows if r["sent_at"]), default=None)
+        step = due_step(lead, steps, today, last)
         if not step: continue
         campaign, subj, body = templates.render(step, lead)
-        item = dict(email=lead["email"], lead_id=lead["id"], step=step, day=day_offset(step) + 1,
+        item = dict(email=lead["email"], lead_id=lead["id"], step=step, day=step,
                     campaign=campaign, subject=subj, body=body, html_body=templates.to_html(body),
                     include_gmail_signature=True, calendly_link=config.CALENDLY_LINK)
         (new if step == 1 else follow).append(item)
@@ -42,6 +45,7 @@ def mark_sent(con, email, step, ref="", today=None):
     con.execute("insert or ignore into touches(lead_id,step,subject,body,message_id,sent_at) values(?,?,?,?,?,?)",
                 (lead["id"], step, subj, body, ref, today.isoformat()))
     if step == 1: con.execute("update leads set started_at=? where id=?", (today.isoformat(), lead["id"]))
+    if step >= MAX_STEPS: con.execute("update leads set status='completed' where id=? and status='active'", (lead["id"],))
     con.commit()
 
 def mark_drafted(con, email, step, ref="", today=None):

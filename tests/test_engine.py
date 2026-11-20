@@ -10,19 +10,26 @@ class T(unittest.TestCase):
         self.res = importer.import_leads(self.con, f"{d}/l.csv")
     def test_import(self):
         self.assertEqual((self.res["new"], self.res["skipped_unverified_invalid_or_contacted"]), (2, 1))
-    def test_cadence_days_and_framework_loop(self):
-        t0 = datetime(2026, 1, 1, tzinfo=timezone.utc); days = []; subjects = {}
-        for day in range(14):
-            for d in engine.due(self.con, today=t0 + timedelta(days=day)):
-                engine.mark_sent(self.con, d["email"], d["step"], today=t0 + timedelta(days=day)); days.append(day); subjects.setdefault(d["email"], set()).add(d["subject"])
-        self.assertEqual(sorted(set(days)), [0, 2, 4, 6, 8, 10, 12])        # day 1, 3, 5, 7, 9, 11, 13
-        self.assertTrue(all(len(v) == 1 for v in subjects.values()))        # each lead keeps one subject through the sequence
+    def test_daily_weekday_cadence_two_rounds(self):
+        t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)          # a Thursday
+        sent = {}; subjects = {}
+        for day in range(40):
+            now = t0 + timedelta(days=day)
+            due = engine.due(self.con, today=now, cap=100, total_cap=100)
+            if now.weekday() >= 5: self.assertEqual(due, [])      # nothing on Saturday or Sunday
+            for d in due:
+                engine.mark_sent(self.con, d["email"], d["step"], today=now)
+                sent.setdefault(d["email"], []).append((day, d["step"])); subjects.setdefault(d["email"], set()).add(d["subject"])
+        for email, rows in sent.items():
+            self.assertEqual([st for _, st in rows], list(range(1, 12)))              # first email + 10 follow-ups, then stop
+            self.assertTrue(all(a < b for (a, _), (b, _) in zip(rows, rows[1:])))     # at most one a day
+            self.assertEqual(len(subjects[email]), 1)
+        self.assertEqual(sent["a@x.com"][:4], [(0, 1), (1, 2), (4, 3), (5, 4)])     # Thu, Fri, then Mon, Tue (weekend skipped)
+        self.assertEqual(self.con.execute("select status from leads where email='a@x.com'").fetchone()[0], "completed")
         from sdr import templates
         lead = self.con.execute("select * from leads where email='a@x.com'").fetchone()
-        names = [templates.framework_name(s) for s in range(2, 9)]
-        self.assertEqual(names, ["Problem", "Insight", "Proof", "Solution", "Next step", "Problem", "Insight"])
-        self.assertEqual(templates.render(7, lead)[2], templates.render(2, lead)[2])   # step 7 loops back to follow-up 1
-        self.assertIn("26+ years", templates.render(4, lead)[2]); self.assertIn("30-minute walkthrough", templates.render(6, lead)[2])
+        self.assertEqual([templates.framework_name(s) for s in range(2, 12)], ["Problem", "Insight", "Proof", "Solution", "Next step"] * 2)
+        self.assertEqual(templates.render(7, lead)[2], templates.render(2, lead)[2])  # round 2 repeats round 1
     def test_cover_contacts(self):
         txt = "I am on leave. Please contact rebecca@macfarmmanagement.com. IT: support@netier.com.au. Eva eva@macfarmmanagement.com"
         self.assertEqual(triage.cover_contacts(txt, "eva@macfarmmanagement.com"), ["rebecca@macfarmmanagement.com"])
@@ -40,7 +47,7 @@ class T(unittest.TestCase):
     def test_reply_stops_cadence(self):
         t0 = datetime(2026, 1, 1, tzinfo=timezone.utc); engine.mark_sent(self.con, "a@x.com", 1, today=t0)
         triage.record_reply(self.con, 1, "a@x.com", "Re", "Sounds good, send details", "m1")
-        self.assertEqual([d["email"] for d in engine.due(self.con, today=t0 + timedelta(days=2))], ["b@y.com"])
+        self.assertEqual([d["email"] for d in engine.due(self.con, today=t0 + timedelta(days=4))], ["b@y.com"])
         self.assertEqual(self.con.execute("select count(*) from touches where lead_id=1").fetchone()[0], 1)
         self.assertEqual(self.con.execute("select status from leads where id=1").fetchone()[0], "replied")
     def test_suppress_blocks_followups_and_reimport(self):
@@ -55,9 +62,9 @@ class T(unittest.TestCase):
         t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
         d = engine.due(self.con, today=t0, cap=1); self.assertEqual(len(d), 1)
         engine.mark_sent(self.con, d[0]["email"], 1, today=t0)
-        d2 = engine.due(self.con, today=t0 + timedelta(days=2), cap=1)
+        d2 = engine.due(self.con, today=t0 + timedelta(days=4), cap=1)
         self.assertEqual(sorted((x["step"]) for x in d2), [1, 2])   # 1 new + 1 follow-up
-        d3 = engine.due(self.con, today=t0 + timedelta(days=2), cap=1, total_cap=1)
+        d3 = engine.due(self.con, today=t0 + timedelta(days=4), cap=1, total_cap=1)
         self.assertEqual([x["step"] for x in d3], [2])               # total limit: follow-up first, new email waits
     def test_drafts_wait_for_approval(self):
         t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -67,7 +74,7 @@ class T(unittest.TestCase):
         t1 = t0 + timedelta(days=1); self.assertEqual(engine.approve(self.con, today=t1), 1)
         self.assertEqual(self.con.execute("select started_at is not null from leads where email='a@x.com'").fetchone()[0], 1)
         self.assertNotIn("a@x.com", [x["email"] for x in engine.due(self.con, today=t1 + timedelta(days=1))])
-        self.assertIn("a@x.com", [x["email"] for x in engine.due(self.con, today=t1 + timedelta(days=2))])  # day 3 follow-up
+        self.assertIn("a@x.com", [x["email"] for x in engine.due(self.con, today=t1 + timedelta(days=3))])  # next business day (Mon)
     def test_quote_mode_and_subjects(self):
         import json
         from sdr import templates
@@ -88,6 +95,10 @@ class T(unittest.TestCase):
         engine.mark_sent(self.con, "a@x.com", 1); self.assertEqual(engine.mark_legacy_subjects(self.con), 1)
         old = self.con.execute("select * from leads where email='a@x.com'").fetchone()
         self.assertEqual(templates.render(2, old)[1], templates.LEGACY_SUBJECT)           # already-emailed lead keeps its thread subject
+    def test_no_weekend_sends_even_for_new_leads(self):
+        sat = datetime(2026, 1, 3, tzinfo=timezone.utc); mon = datetime(2026, 1, 5, tzinfo=timezone.utc)
+        self.assertEqual(engine.due(self.con, today=sat), [])
+        self.assertEqual(len(engine.due(self.con, today=mon)), 2)
     def test_classify(self):
         self.assertEqual(triage.classify("", "please unsubscribe me"), "unsubscribe")
         self.assertEqual(triage.classify("", "Not interested, thanks"), "not_interested")
