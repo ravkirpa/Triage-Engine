@@ -44,7 +44,7 @@ def render(step, lead):
     extra = _extra(lead)
     if extra.get("quote_mode"): return render_quote(step, lead, extra)
     key, c = campaigns.build(lead["signal"])
-    first = "there" if "shared inbox" in (lead["title"] or "").lower() else ((lead["name"] or "").split(" ")[0] or "there")
+    first = extra.get("greeting_name") or ("there" if "shared inbox" in (lead["title"] or "").lower() else ((lead["name"] or "").split(" ")[0] or "there"))
     company = lead["company"] or "your team"
     hi = f"Hi {first},"
     if step == 1:
