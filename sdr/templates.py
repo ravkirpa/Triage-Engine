@@ -30,9 +30,15 @@ def render_quote(step, lead, extra):
                "Would a 30-minute walkthrough make sense? Book through the Calendly link in my signature, or reply with a time that suits you and I will arrange it.")
         return "sg_quote", subj, f"{hi}\n\n{mid}\n\n{OPTOUT}\n\nThank you so much,"
     part = framework_name(step)
-    if part == "Problem": mid = f"Following up on my note. {o['hook']} If so, that is usually where payroll time and errors creep in. {QUOTE}"
-    elif part == "Insight": mid = (f"One pattern with {o['pain']}: it is rarely a people problem. The data sits in separate places, so each handoff adds a manual step. "
-                                   f"One platform for payroll and HRIS removes those handoffs. {QUOTE}")
+    partner = bool(extra.get("partner_type"))
+    if part == "Problem":
+        mid = (f"Following up on my note. {o['hook']} {QUOTE}" if partner else
+               f"Following up on my note. {o['hook']} That is usually where payroll time and errors creep in. {QUOTE}")
+    elif part == "Insight":
+        mid = ((f"One pattern in payroll delivery: delays rarely come from the people. They come from data held in separate places and the manual handoffs between teams. "
+                f"One platform for payroll and HRIS removes those handoffs. {QUOTE}") if partner else
+               (f"One pattern with {o['pain']}: it is rarely a people problem. The data sits in separate places, so each handoff adds a manual step. "
+                f"One platform for payroll and HRIS removes those handoffs. {QUOTE}"))
     elif part == "Proof": mid = ("TankhaPay comes from Akal Information Systems: 26+ years in HR, payroll and compliance, 1,000+ businesses served, "
                                   f"ISO/IEC 27001 certified, with links to SAP, Oracle and 50+ systems. {QUOTE}")
     elif part == "Solution": mid = f"For {company}, TankhaPay would {o['solution']}, giving {o['outcome']}. {QUOTE}"
