@@ -11,3 +11,11 @@ Follow-up framework (step 2 onwards, one part per follow-up): follow-up 1 Proble
 3b. **If you cannot send** (the send tool is unavailable, the Gmail sign-in has expired, or a send fails): do NOT send. Create a Gmail draft (`create_draft`, same `subject`, `body`, `htmlBody`, `includeSignature: true`; follow-ups in the first email's thread) for each remaining due email, run `python -m sdr drafted <email> <step> --ref <draft id>` for each, and tell the user the drafts are waiting for approval. Never mark a draft as sent. When the user approves, send each draft with `send_message` using its `draftId`, then run `python -m sdr approve`. If Gmail cannot be reached at all, just report that nothing was done; the next run picks up everything still due.
 4. **Triage:** for interested/question/referral replies, draft a suggested response (as a Gmail draft) that nudges the lead to book via the Calendly link in the signature, or to share a time.
 5. **Summary** to the user: replies by category, drafts created today, leads needing attention, and a reminder to review and send the drafts.
+6. **Refresh the dashboard** at https://claude.ai/artifact/6S7wedLpfJQdXCGfXF1xJo (do this last, after all sends are recorded, on weekdays; it is aggregate counts only, never names or emails). Load `ArtifactData` with ToolSearch if needed.
+   a. Run `python -m sdr.dashboard_data <scratchpad>/dash` (writes actual_daily, projected_daily, funnel, campaigns, events, stages as .json).
+   b. `ArtifactData list` the `datasets` collection on that URL: note each dataset's `version` and its current `source.url` (`/_blob/<id>`).
+   c. For each of the six files, call `Artifact` with `url` set to the dashboard URL, `asset: true` and `file_path` set to the file (one call per file; they can run in parallel). Note each new `/_blob/<id>`.
+   d. `ArtifactData batch`: for each dataset `update` `source.url` to the new blob and `updated` to `{at: <current UTC time from `date -u`, never in the future>, by: "Claude"}`, pinning each with its `if_version`.
+   e. Delete each replaced old asset with `Artifact action: "delete"`, `url` the dashboard URL and `path` the old blob id.
+   Never edit `files/index.html` or any other part of the page from this routine. If any step fails, say so in the summary and leave the dashboard as it was.
+
