@@ -114,6 +114,13 @@ class T(unittest.TestCase):
         self.con.execute("update leads set extra=? where email='a@x.com'", (json.dumps({"subject_override": "Introduction | TankhaPay Payroll & HRIS"}),)); self.con.commit()
         lead = self.con.execute("select * from leads where email='a@x.com'").fetchone()
         self.assertTrue(all(templates.render(s, lead)[1] == "Introduction | TankhaPay Payroll & HRIS" for s in range(1, 8)))
+    def test_priority_first_followup(self):
+        import json
+        mon = datetime(2026, 1, 5, tzinfo=timezone.utc); tue = mon + timedelta(days=1)
+        engine.mark_sent(self.con, "a@x.com", 1, today=mon); engine.mark_sent(self.con, "b@y.com", 1, today=mon + timedelta(hours=5))
+        self.con.execute("update leads set extra=? where email='b@y.com'", (json.dumps({"priority_first_followup": True}),)); self.con.commit()
+        d = engine.due(self.con, today=tue, cap=0, total_cap=1)
+        self.assertEqual([x["email"] for x in d], ["b@y.com"])          # b was emailed later but has priority
     def test_classify(self):
         self.assertEqual(triage.classify("", "please unsubscribe me"), "unsubscribe")
         self.assertEqual(triage.classify("", "Not interested, thanks"), "not_interested")

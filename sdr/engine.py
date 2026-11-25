@@ -33,9 +33,11 @@ def due(con, today=None, cap=None, total_cap=None):
         campaign, subj, body = templates.render(step, lead)
         item = dict(email=lead["email"], lead_id=lead["id"], step=step, day=step, campaign=campaign, subject=subj, body=body,
                     html_body=templates.to_html(body), include_gmail_signature=True, calendly_link=config.CALENDLY_LINK)
-        (new if step == 1 else follow).append((last or datetime.min.replace(tzinfo=timezone.utc), lead["id"], item))
-    new = [i for _, _, i in sorted(new, key=lambda t: t[1])][:min(cap, total_cap)]
-    follow = [i for _, _, i in sorted(follow, key=lambda t: (t[0], t[1]))][:max(0, total_cap - len(new))]
+        import json as _j
+        prio = 0 if (step == 2 and _j.loads(lead["extra"] or "{}").get("priority_first_followup")) else 1
+        (new if step == 1 else follow).append((prio, last or datetime.min.replace(tzinfo=timezone.utc), lead["id"], item))
+    new = [t[3] for t in sorted(new, key=lambda t: t[2])][:min(cap, total_cap)]
+    follow = [t[3] for t in sorted(follow, key=lambda t: (t[0], t[1], t[2]))][:max(0, total_cap - len(new))]
     return follow + new
 
 def mark_sent(con, email, step, ref="", today=None):
