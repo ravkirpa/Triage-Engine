@@ -22,10 +22,35 @@ def _extra(lead):
     try: return json.loads(lead["extra"] or "{}")
     except Exception: return {}
 
+def generic_mid(step, company):
+    """Middle paragraph of follow-up `step` (2+) in the generic HR-automation framework."""
+    part = framework_name(step)
+    if part == "Problem":
+        return ("Circling back on my earlier note. When employee management and payroll run on separate tools and manual steps, HR teams usually feel it as more admin, "
+                f"more errors and more time spent chasing approvals. Is that something {company} is dealing with right now?")
+    if part == "Insight":
+        return ("One pattern I see: the hassle is rarely the people. It is the manual handoffs between separate tools. Automating HR workflows and running them from one "
+                "centralized, unified platform removes those handoffs, and payroll stays in step with the employee record.")
+    if part == "Proof":
+        return ("TankhaPay comes from Akal Information Systems, with 26+ years of technology and HR experience and 1,000+ clients, including DLF, Bank of Baroda, Wipro, "
+                "Tata 1mg and Hitachi India. It is ISO/IEC 27001 certified and connects to SAP, Oracle and 50+ other systems.")
+    if part == "Solution":
+        return (f"For {company}, TankhaPay would automate your HR workflows, from onboarding, attendance and leave to approvals and payroll, on one centralized platform, "
+                "so your team spends less time on admin and has one reliable view of the workforce.")
+    return ("A simple next step: a 30-minute walkthrough of how HR workflows and payroll run from one unified platform. Pick a time through the Calendly link in my "
+            "signature, or reply with a time that suits you and I will arrange it.")
+
 def render_quote(step, lead, extra):
     """Short, to-the-point emails for the Singapore list: says 'payroll' (not 'global payroll') and quotes $8 pepm every time."""
     o = extra["quote_mode"]; first = (lead["name"] or "").split(" ")[0] or "there"; company = lead["company"] or "your team"
     hi = f"Hi {first},"; subj = subject_for(lead, extra)
+    if not extra.get("partner_type"):     # buyers: generic HR-automation wording, quote kept; partner-type contacts keep their bespoke hooks
+        if step == 1:
+            mid = ("Is managing employee operations and payroll across separate tools slowing your HR team down? Automating HR workflows can ease out the hassles of employee "
+                   f"management and payroll, and all of it can run from one centralized, unified platform. {PRODUCT_SG}\n\n"
+                   "Would a 30-minute walkthrough make sense? Book through the Calendly link in my signature, or reply with a time that suits you and I will arrange it.")
+            return "sg_quote", subj, f"{hi}\n\n{mid}\n\n{OPTOUT}\n\nThank you so much,"
+        return "sg_quote", subj, f"{hi}\n\n{generic_mid(step, company)} {QUOTE}\n\n{OPTOUT}\n\nThank you,"
     if step == 1:
         mid = (f"{o['hook']} {PRODUCT_SG}\n\n"
                "Would a 30-minute walkthrough make sense? Book through the Calendly link in my signature, or reply with a time that suits you and I will arrange it.")
@@ -63,22 +88,7 @@ def render(step, lead):
                 "You can book a meeting through the Calendly link in my signature, or share a suitable time and I’ll arrange it, and I will be happy to walk you through it!\n\n"
                 f"{OPTOUT}\n\nThank you so much,")
         return key, subj, body
-    part = framework_name(step)
-    if part == "Problem":
-        mid = ("Circling back on my earlier note. When employee management and payroll run on separate tools and manual steps, HR teams usually feel it as more admin, "
-               f"more errors and more time spent chasing approvals. Is that something {company} is dealing with right now?")
-    elif part == "Insight":
-        mid = ("One pattern I see: the hassle is rarely the people. It is the manual handoffs between separate tools. Automating HR workflows and running them from one "
-               "centralized, unified platform removes those handoffs, and payroll stays in step with the employee record.")
-    elif part == "Proof":
-        mid = ("TankhaPay comes from Akal Information Systems, with 26+ years of technology and HR experience and 1,000+ clients, including DLF, Bank of Baroda, Wipro, "
-               "Tata 1mg and Hitachi India. It is ISO/IEC 27001 certified and connects to SAP, Oracle and 50+ other systems.")
-    elif part == "Solution":
-        mid = (f"For {company}, TankhaPay would automate your HR workflows, from onboarding, attendance and leave to approvals and payroll, on one centralized platform, "
-               "so your team spends less time on admin and has one reliable view of the workforce.")
-    else:
-        mid = ("A simple next step: a 30-minute walkthrough of how HR workflows and payroll run from one unified platform. Pick a time through the Calendly link in my "
-               "signature, or reply with a time that suits you and I will arrange it.")
+    mid = generic_mid(step, company)
     return key, subj, f"{hi}\n\n{mid}\n\n{OPTOUT}\n\nThank you,"
 
 def to_html(body):

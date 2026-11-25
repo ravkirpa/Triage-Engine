@@ -121,6 +121,18 @@ class T(unittest.TestCase):
         self.con.execute("update leads set extra=? where email='b@y.com'", (json.dumps({"priority_first_followup": True}),)); self.con.commit()
         d = engine.due(self.con, today=tue, cap=0, total_cap=1)
         self.assertEqual([x["email"] for x in d], ["b@y.com"])          # b was emailed later but has priority
+    def test_quote_leads_generic_but_partners_keep_hooks(self):
+        import json
+        from sdr import templates
+        mk = lambda e, partner: self.con.execute("insert into leads(email,name,company,extra,status) values(?, 'Pat Lee','Corp',?, 'active')",
+            (e, json.dumps({"quote_mode": dict(hook="HOOK-TEXT?", pain="p", solution="s", outcome="o"), "partner_type": partner})))
+        mk("buyer@c.com", False); mk("partner@c.com", True); self.con.commit()
+        b = self.con.execute("select * from leads where email='buyer@c.com'").fetchone(); p = self.con.execute("select * from leads where email='partner@c.com'").fetchone()
+        for step in range(1, 8):
+            body = templates.render(step, b)[2]
+            self.assertNotIn("HOOK-TEXT", body); self.assertIn("$8 per employee per month", body); self.assertNotIn("global payroll", body.lower())
+        self.assertIn("automating hr workflows", templates.render(1, b)[2].lower())
+        self.assertIn("HOOK-TEXT", templates.render(1, p)[2]); self.assertIn("HOOK-TEXT", templates.render(2, p)[2])
     def test_classify(self):
         self.assertEqual(triage.classify("", "please unsubscribe me"), "unsubscribe")
         self.assertEqual(triage.classify("", "Not interested, thanks"), "not_interested")
