@@ -8,6 +8,7 @@ QUOTE = "Payroll and HRIS together is $8 per employee per month."
 PRODUCT_SG = "TankhaPay is a Unified Payroll and HRIS platform that helps bring payroll and HR data for each country onto one platform at $8 per employee per month."                # quoted in every email to quote-mode leads
 
 def subject_for(lead, extra):
+    if extra.get("subject_override"): return extra["subject_override"]
     return LEGACY_SUBJECT if extra.get("legacy_subject") else f"Simplifying payroll and HR management for {lead['company'] or 'your team'}"
 
 FRAMEWORK = ("Problem", "Insight", "Proof", "Solution", "Next step")
@@ -47,34 +48,38 @@ def render_quote(step, lead, extra):
     return "sg_quote", subj, f"{hi}\n\n{mid}\n\n{OPTOUT}\n\nThank you,"
 
 def render(step, lead):
+    """Main campaign copy (from 26 Nov): generic HR-automation message, no specific pain points such as timesheets or shifts.
+    The Singapore quote-mode leads keep their own bespoke hooks."""
     extra = _extra(lead)
     if extra.get("quote_mode"): return render_quote(step, lead, extra)
-    key, c = campaigns.build(lead["signal"])
+    key, _ = campaigns.build(lead["signal"])          # kept only so reports can group leads
     first = extra.get("greeting_name") or ("there" if "shared inbox" in (lead["title"] or "").lower() else ((lead["name"] or "").split(" ")[0] or "there"))
-    company = lead["company"] or "your team"
-    hi = f"Hi {first},"
+    company = lead["company"] or "your team"; hi = f"Hi {first},"; subj = subject_for(lead, extra)
     if step == 1:
-        body = (f"{hi}\n\nIs {c['pain']} causing {c['impact']}? TankhaPay is a Unified Global Payroll and HRIS platform that helps {c['solution']}, "
-                f"delivering {c['value']} and improving ROI through reduced {c['roi']}.\n\n"
+        body = (f"{hi}\n\nIs managing employee operations and payroll across separate tools and spreadsheets slowing your HR team down? "
+                "Automating HR workflows can ease out the hassles of employee management and payroll, and all of it can run from one centralized, unified platform. "
+                "TankhaPay is a Unified Global Payroll and HRIS platform that brings onboarding, employee records, attendance, leave, approvals and payroll together, "
+                "helping HR and finance teams save time, reduce errors and stay compliant as the business grows.\n\n"
                 "You can book a meeting through the Calendly link in my signature, or share a suitable time and I’ll arrange it, and I will be happy to walk you through it!\n\n"
                 f"{OPTOUT}\n\nThank you so much,")
-        return key, subject_for(lead, extra), body
+        return key, subj, body
     part = framework_name(step)
     if part == "Problem":
-        mid = (f"Circling back on my earlier note. Teams dealing with {c['pain']} usually feel it as {c['impact']}. "
-               f"Is that something {company} is running into right now?")
+        mid = ("Circling back on my earlier note. When employee management and payroll run on separate tools and manual steps, HR teams usually feel it as more admin, "
+               f"more errors and more time spent chasing approvals. Is that something {company} is dealing with right now?")
     elif part == "Insight":
-        mid = (f"One pattern I see with {c['pain']}: it is rarely a people problem. It usually happens because the data sits in separate places, "
-               "so every handoff adds a manual step and another chance for error. Bringing it onto one platform removes those handoffs.")
+        mid = ("One pattern I see: the hassle is rarely the people. It is the manual handoffs between separate tools. Automating HR workflows and running them from one "
+               "centralized, unified platform removes those handoffs, and payroll stays in step with the employee record.")
     elif part == "Proof":
-        mid = ("TankhaPay comes from Akal Information Systems, with 26+ years of HR, payroll and compliance experience, 1,000+ businesses served and "
-               "ISO/IEC 27001 certification. The platform automates 100+ HR tasks and connects to SAP, Oracle and 50+ other systems.")
+        mid = ("TankhaPay comes from Akal Information Systems, with 26+ years of technology and HR experience and 1,000+ clients, including DLF, Bank of Baroda, Wipro, "
+               "Tata 1mg and Hitachi India. It is ISO/IEC 27001 certified and connects to SAP, Oracle and 50+ other systems.")
     elif part == "Solution":
-        mid = (f"Here is how it would work for {company}: TankhaPay would {c['solution']}, delivering {c['value']} and reducing {c['roi']}.")
-    else:  # Next step
-        mid = (f"A simple next step: a 30-minute walkthrough focused on {c['pain']} at {company}. "
-               "Pick a time through the Calendly link in my signature, or reply with a time that suits you and I will arrange it.")
-    return key, subject_for(lead, extra), f"{hi}\n\n{mid}\n\n{OPTOUT}\n\nThank you,"
+        mid = (f"For {company}, TankhaPay would automate your HR workflows, from onboarding, attendance and leave to approvals and payroll, on one centralized platform, "
+               "so your team spends less time on admin and has one reliable view of the workforce.")
+    else:
+        mid = ("A simple next step: a 30-minute walkthrough of how HR workflows and payroll run from one unified platform. Pick a time through the Calendly link in my "
+               "signature, or reply with a time that suits you and I will arrange it.")
+    return key, subj, f"{hi}\n\n{mid}\n\n{OPTOUT}\n\nThank you,"
 
 def to_html(body):
     """Plain-text body -> HTML paragraphs. Gmail appends the user's signature (logo + exact Calendly link)."""

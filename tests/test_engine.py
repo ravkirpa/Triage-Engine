@@ -99,6 +99,21 @@ class T(unittest.TestCase):
         sat = datetime(2026, 1, 3, tzinfo=timezone.utc); mon = datetime(2026, 1, 5, tzinfo=timezone.utc)
         self.assertEqual(engine.due(self.con, today=sat), [])
         self.assertEqual(len(engine.due(self.con, today=mon)), 2)
+    def test_generic_copy_has_no_specific_pain_points(self):
+        import re
+        from sdr import templates
+        lead = self.con.execute("select * from leads where email='a@x.com'").fetchone()
+        for step in range(1, 12):
+            body = templates.render(step, lead)[2].lower()
+            self.assertIsNone(re.search(r"timesheet|casual|shift|roster|rework on hours|reconciliation across managers", body), (step, body))
+            self.assertIn("unified platform" if step in (1, 3, 4, 6) or step else "", body) if step in (1, 3, 6) else None
+        self.assertIn("automating hr workflows", templates.render(1, lead)[2].lower())
+    def test_subject_override_for_intro_threads(self):
+        import json
+        from sdr import templates
+        self.con.execute("update leads set extra=? where email='a@x.com'", (json.dumps({"subject_override": "Introduction | TankhaPay Payroll & HRIS"}),)); self.con.commit()
+        lead = self.con.execute("select * from leads where email='a@x.com'").fetchone()
+        self.assertTrue(all(templates.render(s, lead)[1] == "Introduction | TankhaPay Payroll & HRIS" for s in range(1, 8)))
     def test_classify(self):
         self.assertEqual(triage.classify("", "please unsubscribe me"), "unsubscribe")
         self.assertEqual(triage.classify("", "Not interested, thanks"), "not_interested")
