@@ -38,7 +38,12 @@ def build(out):
            "bank_volunteers": "Employees vs volunteers", "attendance": "Attendance & shifts", "multi_entity": "Multiple entities", "integration": "System integration", "payroll_compliance": "Payroll compliance",
            "onboarding_admin": "HR administration", "general": "General"}
     json.dump({"rows": [dict(campaign=lab.get(k, k), leads=v) for k, v in cs.most_common()], "meta": meta("Active leads per campaign")}, open(f"{out}/campaigns.json", "w"))
-    # timeline of milestones and incidents (aggregates and reasons only)
+    # emails sent by framework stage
+    stage_names = {1: "First email", 2: "Follow-up 1 · Problem", 3: "Follow-up 2 · Insight", 4: "Follow-up 3 · Proof", 5: "Follow-up 4 · Solution", 6: "Follow-up 5 · Next step"}
+    stg = [dict(stage=stage_names[k], emails=n) for k, n in sorted(steps.items()) if k in stage_names] + \
+          ([dict(stage="Round 2 (follow-ups 6 to 10)", emails=sum(n for k, n in steps.items() if k > 6))] if any(k > 6 for k in steps) else [])
+    json.dump({"rows": stg, "meta": meta("Emails sent by stage")}, open(f"{out}/stages.json", "w"))
+    # log: fixed milestones up to 22 Nov, then one line per daily run and per kind of removal, from the database
     ev = [dict(date="2026-11-18", event="Test round", detail="5 hand-sent emails; 2 auto-replies (left company, on leave)", kind="send"),
           dict(date="2026-11-19", event="Campaign launch", detail="40 first emails (20 shortlist, 20 Employment Hero data)", kind="send"),
           dict(date="2026-11-19", event="Bounce", detail="1 invalid address removed", kind="problem"),
@@ -46,8 +51,15 @@ def build(out):
           dict(date="2026-11-20", event="Singapore list", detail="16 contacts, $8 per employee per month quote", kind="send"),
           dict(date="2026-11-20", event="Cover contacts", detail="Auto-replies named 5 cover or HR contacts, all emailed", kind="send"),
           dict(date="2026-11-20", event="Bounces and leave", detail="5 invalid addresses removed; 1 person on long leave removed, cover contact emailed", kind="problem"),
-          dict(date="2026-11-23", event="Aggressive cadence starts", detail="Daily on weekdays, 20 new a day, 80 total, 2 rounds then stop", kind="plan")]
+          dict(date="2026-11-23", event="Aggressive cadence starts", detail="Weekdays only, 20 new a day, 80 total, 2 rounds then stop", kind="plan")]
+    for day, n1, n2 in q("select date(sent_at), sum(step=1), sum(step>1) from touches where dry_run=0 and date(sent_at)>='2026-11-23' group by 1 order by 1"):
+        ev.append(dict(date=day, event="Daily run", detail=f"{n1 + n2} emails: {n1} new first emails, {n2} follow-ups", kind="send"))
+    cat = lambda r: "invalid address" if any(w in r.lower() for w in ("bounce", "invalid", "error")) else "left the company" if "left" in r.lower() else "long leave" if "leave" in r.lower() else "other"
+    byday = C.defaultdict(C.Counter)
+    for day, reason in q("select date(created_at), reason from suppressed where date(created_at)>='2026-11-23'"): byday[day][cat(reason or "")] += 1
+    for day in sorted(byday):
+        ev.append(dict(date=day, event="Removed from follow-ups", detail="; ".join(f"{c}: {n}" for c, n in byday[day].items()), kind="problem"))
     json.dump({"rows": ev, "meta": meta("Campaign milestones and incidents")}, open(f"{out}/events.json", "w"))
-    return {k: len(json.load(open(f"{out}/{k}.json"))["rows"]) for k in ("actual_daily", "projected_daily", "funnel", "campaigns", "events")}
+    return {k: len(json.load(open(f"{out}/{k}.json"))["rows"]) for k in ("actual_daily", "projected_daily", "funnel", "campaigns", "events", "stages")}
 
 if __name__ == "__main__": print(build(sys.argv[1]))
