@@ -25,6 +25,9 @@ def due(con, today=None, cap=None, total_cap=None):
     today = today or now(); cap = cap or int(config.get("NEW_EMAILS_PER_DAY", "20"))
     total_cap = total_cap or int(config.get("TOTAL_SEND_CAP", "80")); follow, new = [], []
     if today.weekday() >= 5: return []                  # no sends on Saturday or Sunday (new leads included)
+    day = today.date().isoformat()                      # emails already sent today count against the daily caps (safe to re-run)
+    sent_today = con.execute("select count(*) n, coalesce(sum(step=1),0) f from touches where dry_run=0 and substr(sent_at,1,10)=?", (day,)).fetchone()
+    cap = max(0, cap - sent_today["f"]); total_cap = max(0, total_cap - sent_today["n"])
     for lead in con.execute("select * from leads where status='active' order by id").fetchall():
         trows = con.execute("select step, sent_at from touches where lead_id=?", (lead["id"],)).fetchall()
         steps = [r["step"] for r in trows]; last = max((datetime.fromisoformat(r["sent_at"]) for r in trows if r["sent_at"]), default=None)
